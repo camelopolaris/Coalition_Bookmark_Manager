@@ -1,3 +1,5 @@
+//FIXME: May need to be removed
+
 import Versions from './components/Versions/Versions'
 import electronLogo from './assets/electron.svg'
 

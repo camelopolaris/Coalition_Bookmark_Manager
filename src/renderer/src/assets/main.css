@@ -1,13 +1,14 @@
 @import './base.css';
 
 body {
+  background-color: #ECE0D1;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background-image: url('./wavy-lines.svg');
   background-size: cover;
   user-select: none;
+  
 }
 
 code {
