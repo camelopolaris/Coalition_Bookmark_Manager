@@ -23,6 +23,9 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@tanstack/react-router": "^1.170.15",
+    "@tanstack/react-router-devtools": "^1.167.0",
+    "@tanstack/router-plugin": "^1.168.18",
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {

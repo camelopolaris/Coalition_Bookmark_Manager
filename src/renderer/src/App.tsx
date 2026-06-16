@@ -1,4 +1,4 @@
-import Versions from './components/Versions'
+import Versions from './components/Versions/Versions'
 import electronLogo from './assets/electron.svg'
 
 function App(): React.JSX.Element {
