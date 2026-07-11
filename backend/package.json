@@ -1,0 +1,26 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/camelopolaris/Coalition_Bookmark_Manager#readme",
+  "bugs": {
+    "url": "https://github.com/camelopolaris/Coalition_Bookmark_Manager/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/camelopolaris/Coalition_Bookmark_Manager.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "pg": "^8.22.0",
+    "pg-promise": "^12.7.0"
+  }
+}
