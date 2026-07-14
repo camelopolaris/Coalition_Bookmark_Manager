@@ -13,7 +13,10 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      nodeIntegration: true,
+      contextIsolation: false,
+    
     }
   })
 
@@ -26,6 +29,9 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  //MARK: Devtools
+
+  mainWindow.webContents.openDevTools();
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -51,6 +57,8 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  
 
   createWindow()
 
