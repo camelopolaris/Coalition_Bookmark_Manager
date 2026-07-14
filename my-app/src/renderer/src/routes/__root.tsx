@@ -1,6 +1,8 @@
 import { createRootRoute, Link, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
+import '../assets/CSS/global.css';
+
 //TODO: Install and add DevTools if desired
 
 const RootLayout = () => {

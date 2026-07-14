@@ -1,0 +1,14 @@
+* {
+    color: 'blue' !important;
+}
+
+body {
+  background-color: #ECE0D1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-size: cover;
+  user-select: none;
+  
+}

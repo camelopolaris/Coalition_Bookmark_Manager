@@ -6,7 +6,6 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider , createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen'
 
-import App from './App'
 
 //Instantiate router history for navigation purposes
 const memoryHistory = createMemoryHistory({initialEntries: ["/"]});
@@ -25,7 +24,7 @@ declare module '@tanstack/react-router'{
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App/>
+    
     <RouterProvider router={router}/>
   </StrictMode>
 )
