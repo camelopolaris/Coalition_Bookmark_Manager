@@ -4,9 +4,17 @@ create context provider and hook for obtaining auth state,
 functions for handling login / logout, JWT
 */
 
-import { use, createContext, PropsWithChildren } from 'react';
+import { use, useState, createContext, PropsWithChildren } from 'react';
 
+export interface AuthState {
+    isAuth: boolean,
+    handleLoginAttempt: (username: string, password: string) => Promise<void>
+    handleSignup: (username: string, password: string) => Promise<void>,
+    handleLogout: () => Promise<void>,
+    fetchWithAuth: (endpoint: RequestInfo, options: RequestInit) => Promise<Response | undefined>,
+}
 //MARK: Context definition
+/*
 const AuthContext = createContext<{
     handleLoginAttempt: (username: string, password: string) => Promise<void>,
     handleSignup: (username: string, password: string, wants_notif: boolean) => Promise<void>,
@@ -19,6 +27,8 @@ const AuthContext = createContext<{
     handleLogout: () => Promise.resolve(undefined),
     fetchWithAuth: () => Promise.resolve(undefined),
 });
+*/
+const AuthContext = createContext<AuthState | undefined>(undefined);
 
 //MARK: useAuth hook
 export function useAuth() {
@@ -34,13 +44,29 @@ export function useAuth() {
 //MARK: Provider / context wrapper
 
 export function AuthProvider({ children }: PropsWithChildren) {
+    //MARK: Auth states
+    const [token, setToken] = useState(null);
+    const [isAuth, setIsAuth] = useState(false);
     //MARK: Functions with AuthProvider scope
+    async function handleLoginAttempt(username: string, password: string) {
 
-    async function handleLoginAttempt() {
+        const options = {
+            method: "POST", 
+            body: JSON.stringify({username: username, password: password}),
+            headers: {Content: "application/json",}
+        }
+        try {
+            const response = await fetch(`${process.env.EXPRESS_PUBLIC_API_BASE_URL}/login`, options)
 
+            const responseJSON = await response.json();
+
+            console.log('Login response: ', responseJSON)
+        } catch (error) {
+            console.error(`Failed to login.`)
+        }
     }
 
-    async function handleSignup() {
+    async function handleSignup(username: string, password: string) {
 
     }
     async function handleLogout() {
@@ -61,7 +87,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             else if (response.status === 401) {
 
                 //Logs out if expired
-                checkTokenExpiry(token);
+               //TODO:
 
             }
             else {
@@ -77,6 +103,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         <AuthContext.Provider value={
             {
+                isAuth,
                 handleLoginAttempt,
                 handleSignup,
                 handleLogout,

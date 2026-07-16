@@ -1,9 +1,14 @@
-import { createRootRoute, Link, Outlet } from '@tanstack/react-router';
+import { createRootRoute, createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 require('dotenv').config()
 import '../assets/CSS/global.css';
+import { AuthState } from '@renderer/contexts/AuthContext';
 
 //TODO: Install and add DevTools if desired
+
+export interface RootRouterContext  {
+    auth: AuthState
+}
 
 const RootLayout = () => {
     return(
@@ -18,4 +23,4 @@ const RootLayout = () => {
     );
 }
 
-export const Route = createRootRoute({component: RootLayout});
+export const Route = createRootRouteWithContext<RootRouterContext>()({component: RootLayout});
