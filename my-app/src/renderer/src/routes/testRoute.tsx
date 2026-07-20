@@ -1,14 +1,17 @@
-import {  createFileRoute, Link } from '@tanstack/react-router';
-import { create } from 'domain';
+import { createFileRoute, Link } from '@tanstack/react-router'
 
-export const Route = createFileRoute('/testRoute')({component: TestRoute});
+export const Route = createFileRoute('/testRoute')({
+  component: TestRoute,
+})
 
+function TestRoute() {
+  const { auth } = Route.useRouteContext()
+  const previousTarget = auth.isAuth ? '/authenticated' : '/login'
 
- function TestRoute(){
-
-    return(<>
-        <p>TestRoute</p>
-        <Link to="..">Previous</Link>
-    </>);
-
+  return (
+    <>
+      <p>TestRoute</p>
+      <Link to={previousTarget}>Previous</Link>
+    </>
+  )
 }

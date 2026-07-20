@@ -1,26 +1,40 @@
-import { createRootRoute, createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router';
+import { createRootRouteWithContext, Outlet, useRouter } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-require('dotenv').config()
-import '../assets/CSS/global.css';
-import { AuthState } from '@renderer/contexts/AuthContext';
+import '../assets/CSS/global.css'
+import { AuthState } from '@renderer/contexts/AuthContext'
 
-//TODO: Install and add DevTools if desired
-
-export interface RootRouterContext  {
-    auth: AuthState
+export interface RootRouterContext {
+  auth: AuthState
 }
 
 const RootLayout = () => {
-    return(
+  const router = useRouter()
+  const auth = (router.options.context as { auth?: AuthState } | undefined)?.auth
 
+  const handleLogout = async () => {
+    await auth?.handleLogout?.()
+    await router.navigate({ to: '/login', search: { redirect: '/' } })
+  }
 
-        <>
-        <Link to="/testRoute">TestRoute Link</Link>
-        <Outlet/>
-        <p>{process.env.EXPRESS_PUBLIC_API_BASE_URL}</p>
-        <TanStackRouterDevtools />
-        </>
-    );
+  return (
+    <>
+      {auth?.isAuth ? (
+        <div className="flex justify-end p-4">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            Logout
+          </button>
+        </div>
+      ) : null}
+      <Outlet />
+      <TanStackRouterDevtools />
+    </>
+  )
 }
 
-export const Route = createRootRouteWithContext<RootRouterContext>()({component: RootLayout});
+export const Route = createRootRouteWithContext<RootRouterContext>()({
+  component: RootLayout,
+})

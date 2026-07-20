@@ -1,8 +1,12 @@
 import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { config } from 'dotenv'
 
-// Custom APIs for renderer
-const api = {}
+config({ path: ['.env.local', '.env'] })
+
+const api = {
+  getApiBaseUrl: () => (process.env.EXPRESS_PUBLIC_API_BASE_URL || 'http://localhost:3000').replace(/['"]/g, '').trim(),
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise

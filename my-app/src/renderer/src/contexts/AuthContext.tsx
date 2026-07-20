@@ -1,116 +1,151 @@
-/*
-TODO: Create fetch wrapper for sending fetch requests that require an Authorization header, 
-create context provider and hook for obtaining auth state, 
-functions for handling login / logout, JWT
-*/
+import { createContext, PropsWithChildren, useContext, useMemo, useState } from 'react'
 
-import { use, useState, createContext, PropsWithChildren } from 'react';
+const API_BASE_URL = (window.api as { getApiBaseUrl?: () => string } | undefined)?.getApiBaseUrl?.() || 'http://localhost:3000'
+const STORAGE_KEY = 'coalition.auth.token'
+
+function readStoredToken() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return window.localStorage.getItem(STORAGE_KEY)
+}
 
 export interface AuthState {
-    isAuth: boolean,
-    handleLoginAttempt: (username: string, password: string) => Promise<void>
-    handleSignup: (username: string, password: string) => Promise<void>,
-    handleLogout: () => Promise<void>,
-    fetchWithAuth: (endpoint: RequestInfo, options: RequestInit) => Promise<Response | undefined>,
+  isAuth: boolean
+  token: string | null
+  handleLoginAttempt: (username: string, password: string) => Promise<boolean>
+  handleSignup: (username: string, password: string) => Promise<boolean>
+  handleLogout: () => Promise<void>
+  fetchWithAuth: (
+    endpoint: RequestInfo,
+    options?: RequestInit,
+  ) => Promise<Response | undefined>
 }
-//MARK: Context definition
-/*
-const AuthContext = createContext<{
-    handleLoginAttempt: (username: string, password: string) => Promise<void>,
-    handleSignup: (username: string, password: string, wants_notif: boolean) => Promise<void>,
-    handleLogout: () => Promise<void>,
-    fetchWithAuth: (endpoint: RequestInfo, options: RequestInit) => Promise<Response | undefined>,
 
-}>({
-    handleLoginAttempt: () => Promise.resolve(undefined),
-    handleSignup: () => Promise.resolve(undefined),
-    handleLogout: () => Promise.resolve(undefined),
-    fetchWithAuth: () => Promise.resolve(undefined),
-});
-*/
-const AuthContext = createContext<AuthState | undefined>(undefined);
+const AuthContext = createContext<AuthState | undefined>(undefined)
 
-//MARK: useAuth hook
 export function useAuth() {
-    const authObject = use(AuthContext);
+  const authObject = useContext(AuthContext)
 
-    if (!authObject) {
-        throw new Error("useAuth requires this component to have a wrapped AuthProvider in order to have access to AuthContext whether if this component is nested or not");
-    }
+  if (!authObject) {
+    throw new Error('useAuth requires this component to have a wrapped AuthProvider')
+  }
 
-    return authObject;
+  return authObject
 }
-
-//MARK: Provider / context wrapper
 
 export function AuthProvider({ children }: PropsWithChildren) {
-    //MARK: Auth states
-    const [token, setToken] = useState(null);
-    const [isAuth, setIsAuth] = useState(false);
-    //MARK: Functions with AuthProvider scope
-    async function handleLoginAttempt(username: string, password: string) {
+  const [token, setToken] = useState<string | null>(() => readStoredToken())
+  const [isAuth, setIsAuth] = useState(Boolean(readStoredToken()))
 
-        const options = {
-            method: "POST", 
-            body: JSON.stringify({username: username, password: password}),
-            headers: {Content: "application/json",}
-        }
-        try {
-            const response = await fetch(`${process.env.EXPRESS_PUBLIC_API_BASE_URL}/login`, options)
+  async function handleLoginAttempt(username: string, password: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
 
-            const responseJSON = await response.json();
+      const responseJSON = await response.json().catch(() => ({}))
 
-            console.log('Login response: ', responseJSON)
-        } catch (error) {
-            console.error(`Failed to login.`)
-        }
+      if (!response.ok) {
+        throw new Error(responseJSON?.message || 'Login failed')
+      }
+
+      const nextToken = responseJSON?.token ?? null
+      if (nextToken) {
+        window.localStorage.setItem(STORAGE_KEY, nextToken)
+      } else {
+        window.localStorage.removeItem(STORAGE_KEY)
+      }
+      setToken(nextToken)
+      setIsAuth(Boolean(nextToken || responseJSON?.success))
+      return Boolean(nextToken || responseJSON?.success)
+    } catch (error) {
+      console.error('Failed to login.', error)
+      window.localStorage.removeItem(STORAGE_KEY)
+      setToken(null)
+      setIsAuth(false)
+      return false
+    }
+  }
+
+  async function handleSignup(username: string, password: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+
+      const responseJSON = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(responseJSON?.message || 'Signup failed')
+      }
+
+      const nextToken = responseJSON?.token ?? null
+      if (nextToken) {
+        window.localStorage.setItem(STORAGE_KEY, nextToken)
+      } else {
+        window.localStorage.removeItem(STORAGE_KEY)
+      }
+      setToken(nextToken)
+      setIsAuth(Boolean(nextToken || responseJSON?.success))
+      return Boolean(nextToken || responseJSON?.success)
+    } catch (error) {
+      console.error('Failed to signup.', error)
+      window.localStorage.removeItem(STORAGE_KEY)
+      setToken(null)
+      setIsAuth(false)
+      return false
+    }
+  }
+
+  async function handleLogout() {
+    window.localStorage.removeItem(STORAGE_KEY)
+    setToken(null)
+    setIsAuth(false)
+  }
+
+  async function fetchWithAuth(endpoint: RequestInfo, options: RequestInit = {}) {
+    if (!token) {
+      return undefined
     }
 
-    async function handleSignup(username: string, password: string) {
+    const requestUrl =
+      typeof endpoint === 'string'
+        ? `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
+        : endpoint
 
+    const headers = new Headers(options.headers ?? {})
+    headers.set('Authorization', `Bearer ${token}`)
+
+    try {
+      const response = await fetch(requestUrl, { ...options, headers })
+      if (response.status === 401) {
+        await handleLogout()
+        return undefined
+      }
+      return response
+    } catch (error) {
+      console.error('Request failed.', error)
+      return undefined
     }
-    async function handleLogout() {
+  }
 
-    }
+  const value = useMemo<AuthState>(
+    () => ({
+      isAuth,
+      token,
+      handleLoginAttempt,
+      handleSignup,
+      handleLogout,
+      fetchWithAuth,
+    }),
+    [isAuth, token],
+  )
 
-    async function fetchWithAuth(endpoint: RequestInfo, options: RequestInit): Promise<Response | undefined> {
-        const optionsWithAuthorization = { ...options, headers: { ...options?.headers, "Authorization": `Bearer ${token}` } };
-
-        try {
-            const response = await fetch(`${import.meta.env.EXPRESS_PUBLIC_API_BASE_URL}${endpoint}`, optionsWithAuthorization);
-
-            if (response.ok) {
-
-                //Just the response is returned so that custom handling for each responseJSON or other format can be implemented. Requires .then to be utilized since all asyncs will return a Promise requiring resolution
-                return response;
-            }
-            else if (response.status === 401) {
-
-                //Logs out if expired
-               //TODO:
-
-            }
-            else {
-                throw new Error(`Request at endpoint ${endpoint} failed. Status code: ${response.status}`)
-            }
-        } catch (error) {
-            console.error(error);
-        }
-
-       return;
-    }
-    return (<>
-
-        <AuthContext.Provider value={
-            {
-                isAuth,
-                handleLoginAttempt,
-                handleSignup,
-                handleLogout,
-                fetchWithAuth
-            }
-        }>
-            {children}
-        </AuthContext.Provider>
-    </>);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

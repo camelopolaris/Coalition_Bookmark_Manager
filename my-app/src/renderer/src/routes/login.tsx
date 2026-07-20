@@ -1,15 +1,14 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useState } from 'react'
+import { type FormEvent, useState } from 'react'
 
 export const Route = createFileRoute('/login')({
   validateSearch: (search) => ({
-    redirect: (search.redirect as string) || '/',
+    redirect: (search.redirect as string) || '/authenticated',
   }),
   beforeLoad: ({ context, search }) => {
-    // Redirect if already authenticated
     if (context.auth.isAuth) {
       throw redirect({
-        to: search.redirect || '/',
+        to: search.redirect || '/authenticated',
       })
     }
   },
@@ -25,22 +24,25 @@ function LoginComponent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
     try {
-      await auth.handleLoginAttempt(username, password)
-      const redirectTo = redirect || '/'
-      // Navigate to the redirect URL using router navigation
+      const loggedIn = await auth.handleLoginAttempt(username, password)
+      if (!loggedIn) {
+        throw new Error('Invalid username or password')
+      }
+
+      const redirectTo = redirect || '/authenticated'
       navigate({
         to: redirectTo,
         search: {
           redirect: redirectTo,
         },
       })
-    } catch (err) {
+    } catch (_err) {
       setError('Invalid username or password')
     } finally {
       setIsLoading(false)
