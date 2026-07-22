@@ -1,6 +1,7 @@
 import { useRouter } from '@tanstack/react-router'
 import { useAuth } from '@renderer/contexts/AuthContext'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
+import { useFolders } from '@renderer/contexts/FoldersContext'
 import { useSearch } from '@renderer/contexts/SearchContext'
 import './navbar.css'
 
@@ -50,8 +51,23 @@ function SettingsIcon() {
 function Navbar() {
   const { search, setSearch } = useSearch()
   const { openAddModal } = useBookmarks()
+  const { selectedFolderId } = useFolders()
   const auth = useAuth()
   const router = useRouter()
+
+  const handleAddBookmark = () => {
+    if (typeof selectedFolderId === 'number') {
+      openAddModal(selectedFolderId)
+      return
+    }
+
+    if (selectedFolderId === null) {
+      openAddModal(null)
+      return
+    }
+
+    openAddModal()
+  }
 
   const handleLogout = async () => {
     await auth.handleLogout()
@@ -78,7 +94,7 @@ function Navbar() {
         </button>
       </div>
 
-      <button type="button" className="navbar__add" aria-label="Add bookmark" onClick={openAddModal}>
+      <button type="button" className="navbar__add" aria-label="Add bookmark" onClick={handleAddBookmark}>
         +
       </button>
 

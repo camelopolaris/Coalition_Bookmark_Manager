@@ -2,6 +2,7 @@ export interface Bookmark {
   bookmark_id: number
   name: string
   url: string
+  folder_id: number | null
   user_id?: number
 }
 

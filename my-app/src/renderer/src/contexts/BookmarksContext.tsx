@@ -17,7 +17,7 @@ interface BookmarksContextValue {
   editTarget: Bookmark | null
   deleteTarget: Bookmark | null
   selectedBookmarkId: number | null
-  openAddModal: () => void
+  openAddModal: (folderId?: number | null) => void
   closeAddModal: () => void
   openEditModal: (bookmark: Bookmark) => void
   closeEditModal: () => void
@@ -32,6 +32,11 @@ interface BookmarksContextValue {
     input: UpdateBookmarkInput,
   ) => Promise<{ success: boolean; message?: string }>
   deleteBookmark: (bookmarkId: number) => Promise<{ success: boolean; message?: string }>
+  moveBookmarkToFolder: (
+    bookmarkId: number,
+    folderId: number | null,
+  ) => Promise<{ success: boolean; message?: string }>
+  uncategorizeBookmarksInFolders: (folderIds: number[]) => void
 }
 
 const BookmarksContext = createContext<BookmarksContextValue | undefined>(undefined)
@@ -44,6 +49,9 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
   const [editTarget, setEditTarget] = useState<Bookmark | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null)
   const [selectedBookmarkId, setSelectedBookmarkId] = useState<number | null>(null)
+  const [addBookmarkFolderId, setAddBookmarkFolderId] = useState<number | null | undefined>(
+    undefined,
+  )
 
   const loadBookmarks = useCallback(async () => {
     setIsLoading(true)
@@ -79,10 +87,15 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
   const createBookmark = useCallback(
     async (input: CreateBookmarkInput) => {
       try {
+        const payload = {
+          ...input,
+          ...(addBookmarkFolderId !== undefined ? { folder_id: addBookmarkFolderId } : {}),
+        }
+
         const response = await auth.fetchWithAuth('/bookmarks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
+          body: JSON.stringify(payload),
         })
 
         const responseJSON = await response?.json().catch(() => ({}))
@@ -102,7 +115,7 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
         return { success: false, message: 'Unable to create bookmark' }
       }
     },
-    [auth],
+    [auth, addBookmarkFolderId],
   )
 
   const updateBookmark = useCallback(
@@ -165,6 +178,48 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
     [auth],
   )
 
+  const moveBookmarkToFolder = useCallback(
+    async (bookmarkId: number, folderId: number | null) => {
+      try {
+        const response = await auth.fetchWithAuth(`/bookmarks/${bookmarkId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder_id: folderId }),
+        })
+
+        const responseJSON = await response?.json().catch(() => ({}))
+
+        if (!response?.ok) {
+          return {
+            success: false,
+            message: responseJSON?.message || 'Unable to move bookmark',
+          }
+        }
+
+        const bookmark = responseJSON as Bookmark
+        setBookmarks((current) =>
+          current.map((item) => (item.bookmark_id === bookmarkId ? bookmark : item)),
+        )
+        return { success: true }
+      } catch (error) {
+        console.error('Failed to move bookmark.', error)
+        return { success: false, message: 'Unable to move bookmark' }
+      }
+    },
+    [auth],
+  )
+
+  const uncategorizeBookmarksInFolders = useCallback((folderIds: number[]) => {
+    const folderIdSet = new Set(folderIds)
+    setBookmarks((current) =>
+      current.map((bookmark) =>
+        bookmark.folder_id !== null && folderIdSet.has(bookmark.folder_id)
+          ? { ...bookmark, folder_id: null }
+          : bookmark,
+      ),
+    )
+  }, [])
+
   const value = useMemo<BookmarksContextValue>(
     () => ({
       bookmarks,
@@ -173,8 +228,14 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
       editTarget,
       deleteTarget,
       selectedBookmarkId,
-      openAddModal: () => setIsAddModalOpen(true),
-      closeAddModal: () => setIsAddModalOpen(false),
+      openAddModal: (folderId?: number | null) => {
+        setAddBookmarkFolderId(folderId)
+        setIsAddModalOpen(true)
+      },
+      closeAddModal: () => {
+        setIsAddModalOpen(false)
+        setAddBookmarkFolderId(undefined)
+      },
       openEditModal: (bookmark) => setEditTarget(bookmark),
       closeEditModal: () => setEditTarget(null),
       openDeleteModal: (bookmark) => setDeleteTarget(bookmark),
@@ -185,6 +246,8 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
       createBookmark,
       updateBookmark,
       deleteBookmark,
+      moveBookmarkToFolder,
+      uncategorizeBookmarksInFolders,
     }),
     [
       bookmarks,
@@ -197,6 +260,8 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
       createBookmark,
       updateBookmark,
       deleteBookmark,
+      moveBookmarkToFolder,
+      uncategorizeBookmarksInFolders,
     ],
   )
 

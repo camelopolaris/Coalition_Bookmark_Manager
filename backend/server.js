@@ -24,7 +24,13 @@ const {
     BOOKMARK_SELECT_COLUMNS,
     BOOKMARK_WRITABLE_FIELDS,
     parseBookmarkBody,
+    parseBookmarkFolderId,
 } = require('./bookmarkFields');
+const {
+    FOLDER_SELECT_COLUMNS,
+    parseFolderName,
+    parseParentId,
+} = require('./folderFields');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -42,6 +48,48 @@ function authenticateToken(req, res, next) {
     } catch (error) {
         return res.status(401).json({ message: 'Invalid or expired token' });
     }
+}
+
+async function getUserFolder(userId, folderId) {
+    if (folderId === null || folderId === undefined) {
+        return null;
+    }
+
+    return db.oneOrNone(
+        `SELECT folder_id
+         FROM folders
+         WHERE folder_id = $1
+           AND user_id = $2`,
+        [folderId, userId],
+    );
+}
+
+function collectDescendantFolderIds(folders, rootFolderId) {
+    const ids = new Set([rootFolderId]);
+    let changed = true;
+
+    while (changed) {
+        changed = false;
+
+        for (const folder of folders) {
+            if (folder.parent_id !== null && ids.has(folder.parent_id) && !ids.has(folder.folder_id)) {
+                ids.add(folder.folder_id);
+                changed = true;
+            }
+        }
+    }
+
+    return [...ids];
+}
+
+function getLeafFolderIds(folders, folderIds) {
+    const idSet = new Set(folderIds);
+
+    return folderIds.filter((folderId) =>
+        !folders.some(
+            (folder) => folder.parent_id === folderId && idSet.has(folder.folder_id),
+        ),
+    );
 }
 
 app.get('/', (req, res) => {
@@ -114,6 +162,167 @@ app.post('/signup', async (req, res) => {
         return res.status(500).json({ message: 'Unable to create account' })
     }
 })
+//MARK: Folder CRUD
+
+app.get('/folders', authenticateToken, async (req, res) => {
+    try {
+        const folders = await db.any(
+            `SELECT ${FOLDER_SELECT_COLUMNS}
+             FROM folders
+             WHERE user_id = $1
+             ORDER BY name ASC`,
+            [req.user.userId],
+        );
+
+        return res.json(folders);
+    } catch (error) {
+        console.error('Get folders error:', error);
+        return res.status(500).json({ message: 'Unable to fetch folders' });
+    }
+});
+
+app.post('/folders', authenticateToken, async (req, res) => {
+    const nameResult = parseFolderName(req.body?.name);
+    const parentResult = parseParentId(req.body?.parent_id);
+
+    if (nameResult.error) {
+        return res.status(400).json({ message: nameResult.error });
+    }
+
+    if (parentResult.error) {
+        return res.status(400).json({ message: parentResult.error });
+    }
+
+    try {
+        if (parentResult.value !== null) {
+            const parentFolder = await getUserFolder(req.user.userId, parentResult.value);
+
+            if (!parentFolder) {
+                return res.status(404).json({ message: 'Parent folder not found' });
+            }
+        }
+
+        const folder = await db.one(
+            `INSERT INTO folders (name, parent_id, user_id)
+             VALUES ($1, $2, $3)
+             RETURNING ${FOLDER_SELECT_COLUMNS}`,
+            [nameResult.value, parentResult.value, req.user.userId],
+        );
+
+        return res.status(201).json(folder);
+    } catch (error) {
+        console.error('Create folder error:', error);
+        return res.status(500).json({ message: 'Unable to create folder' });
+    }
+});
+
+app.patch('/folders/:id', authenticateToken, async (req, res) => {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: 'Invalid folder id' });
+    }
+
+    const nameResult = parseFolderName(req.body?.name);
+
+    if (nameResult.error) {
+        return res.status(400).json({ message: nameResult.error });
+    }
+
+    try {
+        const folder = await db.oneOrNone(
+            `UPDATE folders
+             SET name = $1
+             WHERE folder_id = $2
+               AND user_id = $3
+             RETURNING ${FOLDER_SELECT_COLUMNS}`,
+            [nameResult.value, id, req.user.userId],
+        );
+
+        if (!folder) {
+            return res.status(404).json({ message: 'Folder not found' });
+        }
+
+        return res.json(folder);
+    } catch (error) {
+        console.error('Rename folder error:', error);
+        return res.status(500).json({ message: 'Unable to rename folder' });
+    }
+});
+
+app.delete('/folders/:id', authenticateToken, async (req, res) => {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: 'Invalid folder id' });
+    }
+
+    try {
+        const deletedFolderIds = await db.tx(async (transaction) => {
+            const rootFolder = await transaction.oneOrNone(
+                `SELECT folder_id
+                 FROM folders
+                 WHERE folder_id = $1
+                   AND user_id = $2`,
+                [id, req.user.userId],
+            );
+
+            if (!rootFolder) {
+                return null;
+            }
+
+            const folders = await transaction.any(
+                `SELECT folder_id, parent_id
+                 FROM folders
+                 WHERE user_id = $1`,
+                [req.user.userId],
+            );
+
+            const folderIdsToDelete = collectDescendantFolderIds(folders, id);
+
+            await transaction.none(
+                `UPDATE bookmarks
+                 SET folder_id = NULL
+                 WHERE user_id = $1
+                   AND folder_id = ANY($2::int[])`,
+                [req.user.userId, folderIdsToDelete],
+            );
+
+            const remainingIds = new Set(folderIdsToDelete);
+
+            while (remainingIds.size > 0) {
+                const leafIds = getLeafFolderIds(folders, [...remainingIds]);
+
+                if (leafIds.length === 0) {
+                    throw new Error('Unable to resolve folder deletion order');
+                }
+
+                await transaction.none(
+                    `DELETE FROM folders
+                     WHERE user_id = $1
+                       AND folder_id = ANY($2::int[])`,
+                    [req.user.userId, leafIds],
+                );
+
+                for (const leafId of leafIds) {
+                    remainingIds.delete(leafId);
+                }
+            }
+
+            return folderIdsToDelete;
+        });
+
+        if (!deletedFolderIds) {
+            return res.status(404).json({ message: 'Folder not found' });
+        }
+
+        return res.json({ success: true, deletedFolderIds });
+    } catch (error) {
+        console.error('Delete folder error:', error);
+        return res.status(500).json({ message: 'Unable to delete folder' });
+    }
+});
+
 //MARK: Bookmark CRUD
 
 //MARK: GET requests
@@ -167,17 +376,34 @@ app.get('/bookmarks/:id', authenticateToken, async (req, res) => {
 
 app.post('/bookmarks', authenticateToken, async (req, res) => {
     const { parsed, errors } = parseBookmarkBody(req.body, { requireAll: true });
+    const folderResult = parseBookmarkFolderId(req.body?.folder_id);
 
     if (errors.length > 0) {
         return res.status(400).json({ message: errors[0] });
     }
 
+    if (folderResult.error) {
+        return res.status(400).json({ message: folderResult.error });
+    }
+
     try {
+        if (folderResult.value !== null) {
+            const folder = await getUserFolder(req.user.userId, folderResult.value);
+
+            if (!folder) {
+                return res.status(404).json({ message: 'Folder not found' });
+            }
+        }
+
         const bookmark = await db.one(
-            `INSERT INTO bookmarks (${BOOKMARK_WRITABLE_FIELDS.join(', ')}, user_id)
-             VALUES ($1, $2, $3)
+            `INSERT INTO bookmarks (${BOOKMARK_WRITABLE_FIELDS.join(', ')}, folder_id, user_id)
+             VALUES ($1, $2, $3, $4)
              RETURNING ${BOOKMARK_SELECT_COLUMNS}`,
-            [...BOOKMARK_WRITABLE_FIELDS.map((field) => parsed[field]), req.user.userId],
+            [
+                ...BOOKMARK_WRITABLE_FIELDS.map((field) => parsed[field]),
+                folderResult.value,
+                req.user.userId,
+            ],
         );
 
         return res.status(201).json(bookmark);
@@ -198,26 +424,47 @@ app.patch('/bookmarks/:id', authenticateToken, async (req, res) => {
     }
 
     const { parsed, errors } = parseBookmarkBody(req.body, { allowPartial: true });
+    const folderResult =
+        req.body?.folder_id !== undefined ? parseBookmarkFolderId(req.body.folder_id) : null;
 
     if (errors.length > 0) {
         return res.status(400).json({ message: errors[0] });
     }
 
-    const updateFields = BOOKMARK_WRITABLE_FIELDS.filter((field) => parsed[field] !== undefined);
+    if (folderResult?.error) {
+        return res.status(400).json({ message: folderResult.error });
+    }
 
-    if (updateFields.length === 0) {
+    const updateFields = BOOKMARK_WRITABLE_FIELDS.filter((field) => parsed[field] !== undefined);
+    const values = updateFields.map((field) => parsed[field]);
+    const setParts = updateFields.map((field, index) => `${field} = $${index + 1}`);
+
+    if (folderResult) {
+        setParts.push(`folder_id = $${setParts.length + 1}`);
+        values.push(folderResult.value);
+    }
+
+    if (setParts.length === 0) {
         return res.status(400).json({ message: 'At least one field must be provided' });
     }
 
-    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
-    const values = updateFields.map((field) => parsed[field]);
+    const bookmarkIdParam = values.length + 1;
+    const userIdParam = values.length + 2;
 
     try {
+        if (folderResult && folderResult.value !== null) {
+            const folder = await getUserFolder(req.user.userId, folderResult.value);
+
+            if (!folder) {
+                return res.status(404).json({ message: 'Folder not found' });
+            }
+        }
+
         const bookmark = await db.oneOrNone(
             `UPDATE bookmarks
-             SET ${setClause}
-             WHERE bookmark_id = $${updateFields.length + 1}
-               AND user_id = $${updateFields.length + 2}
+             SET ${setParts.join(', ')}
+             WHERE bookmark_id = $${bookmarkIdParam}
+               AND user_id = $${userIdParam}
              RETURNING ${BOOKMARK_SELECT_COLUMNS}`,
             [...values, id, req.user.userId],
         );

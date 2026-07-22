@@ -2,7 +2,21 @@ const BOOKMARK_NAME_MAX_LENGTH = 255;
 
 const BOOKMARK_WRITABLE_FIELDS = ['name', 'url'];
 
-const BOOKMARK_SELECT_COLUMNS = 'bookmark_id, name, url, user_id';
+const BOOKMARK_SELECT_COLUMNS = 'bookmark_id, name, url, folder_id, user_id';
+
+function parseBookmarkFolderId(value) {
+    if (value === null || value === undefined || value === '') {
+        return { value: null };
+    }
+
+    const folderId = Number(value);
+
+    if (!Number.isInteger(folderId)) {
+        return { error: 'Invalid folder id' };
+    }
+
+    return { value: folderId };
+}
 
 function parseBookmarkField(field, value) {
     if (field === 'name') {
@@ -74,4 +88,5 @@ module.exports = {
     BOOKMARK_WRITABLE_FIELDS,
     BOOKMARK_SELECT_COLUMNS,
     parseBookmarkBody,
+    parseBookmarkFolderId,
 };

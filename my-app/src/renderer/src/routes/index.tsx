@@ -5,6 +5,7 @@ import { BookmarkGrid } from '@renderer/components/BookmarkCard/BookmarkCard'
 import BookmarkDetail from '@renderer/components/BookmarkDetail/BookmarkDetail'
 import '@renderer/components/BookmarkDetail/bookmark-detail.css'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
+import { useFolders } from '@renderer/contexts/FoldersContext'
 import { useSearch } from '@renderer/contexts/SearchContext'
 import './home.css'
 
@@ -24,20 +25,33 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   const { bookmarks, isLoading, selectedBookmarkId, clearSelectedBookmark } = useBookmarks()
+  const { selectedFolderId } = useFolders()
   const { search } = useSearch()
+
+  const folderFilteredBookmarks = useMemo(() => {
+    if (selectedFolderId === 'all') {
+      return bookmarks
+    }
+
+    if (selectedFolderId === null) {
+      return bookmarks.filter((bookmark) => bookmark.folder_id === null)
+    }
+
+    return bookmarks.filter((bookmark) => bookmark.folder_id === selectedFolderId)
+  }, [bookmarks, selectedFolderId])
 
   const filteredBookmarks = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) {
-      return bookmarks
+      return folderFilteredBookmarks
     }
 
-    return bookmarks.filter(
+    return folderFilteredBookmarks.filter(
       (bookmark) =>
         bookmark.name.toLowerCase().includes(query) ||
         bookmark.url.toLowerCase().includes(query),
     )
-  }, [bookmarks, search])
+  }, [folderFilteredBookmarks, search])
 
   const selectedBookmark = useMemo(
     () => bookmarks.find((bookmark) => bookmark.bookmark_id === selectedBookmarkId) ?? null,

@@ -1,3 +1,11 @@
+.bookmark-card--clickable[draggable='true'] {
+  cursor: grab;
+}
+
+.bookmark-card--clickable[draggable='true']:active {
+  cursor: grabbing;
+}
+
 .bookmark-card--clickable {
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;

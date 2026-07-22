@@ -1,0 +1,31 @@
+.sidebar__context-menu {
+  position: fixed;
+  z-index: 1100;
+  min-width: 160px;
+  padding: 0.35rem 0;
+  background: #fbf8f1;
+  border: 1px solid #c4b59c;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar__context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.85rem;
+  color: #2c2416;
+  font-size: 0.9rem;
+}
+
+.sidebar__context-menu-item:hover {
+  background: #ebe2d3;
+}
+
+.sidebar__context-menu-item--danger {
+  color: #912018;
+}
+
+.sidebar__context-menu-item--danger:hover {
+  background: #fde8e8;
+}
