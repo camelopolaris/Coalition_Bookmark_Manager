@@ -1,14 +1,15 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
+import './login.css'
 
 export const Route = createFileRoute('/login')({
   validateSearch: (search) => ({
-    redirect: (search.redirect as string) || '/authenticated',
+    redirect: (search.redirect as string) || '/',
   }),
   beforeLoad: ({ context, search }) => {
     if (context.auth.isAuth) {
       throw redirect({
-        to: search.redirect || '/authenticated',
+        to: search.redirect || '/',
       })
     }
   },
@@ -17,15 +18,15 @@ export const Route = createFileRoute('/login')({
 
 function LoginComponent() {
   const { auth } = Route.useRouteContext()
-  const { redirect } = Route.useSearch()
+  const { redirect: redirectTo } = Route.useSearch()
   const navigate = Route.useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setIsLoading(true)
     setError('')
 
@@ -35,13 +36,8 @@ function LoginComponent() {
         throw new Error('Invalid username or password')
       }
 
-      const redirectTo = redirect || '/authenticated'
-      navigate({
-        to: redirectTo,
-        search: {
-          redirect: redirectTo,
-        },
-      })
+      const destination = redirectTo || '/'
+      navigate({ to: destination })
     } catch (_err) {
       setError('Invalid username or password')
     } finally {
@@ -50,52 +46,41 @@ function LoginComponent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <form
-        onSubmit={handleSubmit}
-        className="max-w-md w-full space-y-4 p-6 border rounded-lg"
-      >
-        <h1 className="text-2xl font-bold text-center">Sign In</h1>
+    <div className="login-page">
+      <form onSubmit={handleSubmit} className="login-form">
+        <h1 className="login-form__title">Sign In</h1>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
+        {error ? <div className="login-form__error">{error}</div> : null}
 
-        <div>
-          <label htmlFor="username" className="block text-sm font-medium mb-1">
+        <div className="login-form__field">
+          <label htmlFor="username" className="login-form__label">
             Username
           </label>
           <input
             id="username"
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(event) => setUsername(event.target.value)}
+            className="login-form__input"
             required
           />
         </div>
 
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-1">
+        <div className="login-form__field">
+          <label htmlFor="password" className="login-form__label">
             Password
           </label>
           <input
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(event) => setPassword(event.target.value)}
+            className="login-form__input"
             required
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <button type="submit" disabled={isLoading} className="login-form__submit">
           {isLoading ? 'Signing in...' : 'Sign In'}
         </button>
       </form>
