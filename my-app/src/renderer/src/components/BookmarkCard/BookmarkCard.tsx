@@ -35,11 +35,14 @@ interface BookmarkCardProps {
 }
 
 function BookmarkCard({ bookmark }: BookmarkCardProps) {
-  const { openEditModal, openDeleteModal } = useBookmarks()
+  const { openEditModal, openDeleteModal, selectBookmark } = useBookmarks()
   const hostname = getHostname(bookmark.url)
 
   return (
-    <article className="bookmark-card">
+    <article
+      className="bookmark-card bookmark-card--clickable"
+      onClick={() => selectBookmark(bookmark.bookmark_id)}
+    >
       <div className="bookmark-card__preview">
         <img
           src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=128`}
@@ -63,7 +66,10 @@ function BookmarkCard({ bookmark }: BookmarkCardProps) {
           <p className="bookmark-card__url">{bookmark.url}</p>
         </div>
 
-        <div className="bookmark-card__actions">
+        <div
+          className="bookmark-card__actions"
+          onClick={(event) => event.stopPropagation()}
+        >
           <button
             type="button"
             className="bookmark-card__action"

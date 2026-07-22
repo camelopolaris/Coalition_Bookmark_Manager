@@ -16,12 +16,15 @@ interface BookmarksContextValue {
   isAddModalOpen: boolean
   editTarget: Bookmark | null
   deleteTarget: Bookmark | null
+  selectedBookmarkId: number | null
   openAddModal: () => void
   closeAddModal: () => void
   openEditModal: (bookmark: Bookmark) => void
   closeEditModal: () => void
   openDeleteModal: (bookmark: Bookmark) => void
   closeDeleteModal: () => void
+  selectBookmark: (bookmarkId: number) => void
+  clearSelectedBookmark: () => void
   loadBookmarks: () => Promise<void>
   createBookmark: (input: CreateBookmarkInput) => Promise<{ success: boolean; message?: string }>
   updateBookmark: (
@@ -40,6 +43,7 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Bookmark | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null)
+  const [selectedBookmarkId, setSelectedBookmarkId] = useState<number | null>(null)
 
   const loadBookmarks = useCallback(async () => {
     setIsLoading(true)
@@ -68,6 +72,7 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
     } else {
       setBookmarks([])
       setIsLoading(false)
+      setSelectedBookmarkId(null)
     }
   }, [auth.isAuth, loadBookmarks])
 
@@ -150,6 +155,7 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
         setBookmarks((current) =>
           current.filter((bookmark) => bookmark.bookmark_id !== bookmarkId),
         )
+        setSelectedBookmarkId((current) => (current === bookmarkId ? null : current))
         return { success: true }
       } catch (error) {
         console.error('Failed to delete bookmark.', error)
@@ -166,12 +172,15 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
       isAddModalOpen,
       editTarget,
       deleteTarget,
+      selectedBookmarkId,
       openAddModal: () => setIsAddModalOpen(true),
       closeAddModal: () => setIsAddModalOpen(false),
       openEditModal: (bookmark) => setEditTarget(bookmark),
       closeEditModal: () => setEditTarget(null),
       openDeleteModal: (bookmark) => setDeleteTarget(bookmark),
       closeDeleteModal: () => setDeleteTarget(null),
+      selectBookmark: (bookmarkId) => setSelectedBookmarkId(bookmarkId),
+      clearSelectedBookmark: () => setSelectedBookmarkId(null),
       loadBookmarks,
       createBookmark,
       updateBookmark,
@@ -183,6 +192,7 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
       isAddModalOpen,
       editTarget,
       deleteTarget,
+      selectedBookmarkId,
       loadBookmarks,
       createBookmark,
       updateBookmark,

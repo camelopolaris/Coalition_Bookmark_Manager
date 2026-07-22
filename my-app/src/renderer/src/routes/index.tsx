@@ -2,6 +2,8 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import Sidebar from '@renderer/components/Sidebar/Sidebar'
 import { BookmarkGrid } from '@renderer/components/BookmarkCard/BookmarkCard'
+import BookmarkDetail from '@renderer/components/BookmarkDetail/BookmarkDetail'
+import '@renderer/components/BookmarkDetail/bookmark-detail.css'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import { useSearch } from '@renderer/contexts/SearchContext'
 import './home.css'
@@ -21,7 +23,7 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
-  const { bookmarks, isLoading } = useBookmarks()
+  const { bookmarks, isLoading, selectedBookmarkId, clearSelectedBookmark } = useBookmarks()
   const { search } = useSearch()
 
   const filteredBookmarks = useMemo(() => {
@@ -37,11 +39,29 @@ function HomePage() {
     )
   }, [bookmarks, search])
 
+  const selectedBookmark = useMemo(
+    () => bookmarks.find((bookmark) => bookmark.bookmark_id === selectedBookmarkId) ?? null,
+    [bookmarks, selectedBookmarkId],
+  )
+
   return (
     <div className="home-layout">
       <Sidebar />
       <main className="home-main">
-        <BookmarkGrid bookmarks={filteredBookmarks} isLoading={isLoading} />
+        {selectedBookmarkId !== null ? (
+          selectedBookmark ? (
+            <BookmarkDetail bookmark={selectedBookmark} />
+          ) : (
+            <div className="bookmark-detail__not-found">
+              <p>Bookmark not found.</p>
+              <button type="button" className="bookmark-detail__back" onClick={clearSelectedBookmark}>
+                ← Back to bookmarks
+              </button>
+            </div>
+          )
+        ) : (
+          <BookmarkGrid bookmarks={filteredBookmarks} isLoading={isLoading} />
+        )}
       </main>
     </div>
   )

@@ -1,0 +1,143 @@
+.bookmark-detail {
+  padding: 1.5rem 2rem 2rem;
+  max-width: 900px;
+}
+
+.bookmark-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  color: #3d3528;
+  font-weight: 600;
+}
+
+.bookmark-detail__back:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.bookmark-detail__panel {
+  background: #d9cdb8;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.bookmark-detail__preview {
+  min-height: 200px;
+  background: #c4b59c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bookmark-detail__preview img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.bookmark-detail__fallback {
+  font-size: 4rem;
+  font-weight: 700;
+  color: #5c5347;
+  text-transform: uppercase;
+}
+
+.bookmark-detail__content {
+  padding: 1.5rem;
+}
+
+.bookmark-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bookmark-detail__title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #2c2416;
+  word-break: break-word;
+}
+
+.bookmark-detail__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.bookmark-detail__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: #3d3528;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.bookmark-detail__action:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.bookmark-detail__action svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.bookmark-detail__section {
+  margin-top: 1.5rem;
+}
+
+.bookmark-detail__section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5c5347;
+  margin-bottom: 0.5rem;
+}
+
+.bookmark-detail__url {
+  display: block;
+  color: #2c2416;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.bookmark-detail__url:hover {
+  text-decoration: underline;
+}
+
+.bookmark-detail__meta {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  color: #5c5347;
+}
+
+.bookmark-detail__open-link {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  background: #9b8c73;
+  color: #fbf8f1;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.bookmark-detail__open-link:hover {
+  background: #8a7c65;
+}
+
+.bookmark-detail__not-found {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #5c5347;
+}
