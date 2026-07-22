@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Sidebar from '@renderer/components/Sidebar/Sidebar'
 import { BookmarkGrid } from '@renderer/components/BookmarkCard/BookmarkCard'
+import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import { useSearch } from '@renderer/contexts/SearchContext'
-import { Bookmark, MOCK_BOOKMARKS } from '@renderer/types/bookmark'
 import './home.css'
 
 export const Route = createFileRoute('/')({
@@ -21,46 +21,8 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
-  const { auth } = Route.useRouteContext()
+  const { bookmarks, isLoading } = useBookmarks()
   const { search } = useSearch()
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadBookmarks() {
-      setIsLoading(true)
-
-      try {
-        const response = await auth.fetchWithAuth('/bookmarks')
-
-        if (response?.ok) {
-          const data = (await response.json()) as Bookmark[]
-          if (isMounted && Array.isArray(data) && data.length > 0) {
-            setBookmarks(data)
-            return
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load bookmarks.', error)
-      }
-
-      if (isMounted) {
-        setBookmarks(MOCK_BOOKMARKS)
-      }
-    }
-
-    loadBookmarks().finally(() => {
-      if (isMounted) {
-        setIsLoading(false)
-      }
-    })
-
-    return () => {
-      isMounted = false
-    }
-  }, [auth])
 
   const filteredBookmarks = useMemo(() => {
     const query = search.trim().toLowerCase()

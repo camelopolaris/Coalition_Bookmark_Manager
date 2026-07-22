@@ -2,7 +2,9 @@ import { createRootRouteWithContext, Outlet, useRouterState } from '@tanstack/re
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import '../assets/CSS/global.css'
 import { AuthState } from '@renderer/contexts/AuthContext'
+import { BookmarksProvider } from '@renderer/contexts/BookmarksContext'
 import { SearchProvider } from '@renderer/contexts/SearchContext'
+import AddBookmarkModal from '@renderer/components/AddBookmarkModal/AddBookmarkModal'
 import Navbar from '@renderer/components/Navbar/Navbar'
 
 export interface RootRouterContext {
@@ -24,9 +26,12 @@ const RootLayout = () => {
 
   return (
     <SearchProvider>
-      <Navbar />
-      <Outlet />
-      <TanStackRouterDevtools />
+      <BookmarksProvider>
+        <Navbar />
+        <Outlet />
+        <AddBookmarkModal />
+        <TanStackRouterDevtools />
+      </BookmarksProvider>
     </SearchProvider>
   )
 }

@@ -1,5 +1,6 @@
 import { useRouter } from '@tanstack/react-router'
 import { useAuth } from '@renderer/contexts/AuthContext'
+import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import { useSearch } from '@renderer/contexts/SearchContext'
 import './navbar.css'
 
@@ -48,6 +49,7 @@ function SettingsIcon() {
 
 function Navbar() {
   const { search, setSearch } = useSearch()
+  const { openAddModal } = useBookmarks()
   const auth = useAuth()
   const router = useRouter()
 
@@ -76,7 +78,7 @@ function Navbar() {
         </button>
       </div>
 
-      <button type="button" className="navbar__add" aria-label="Add bookmark">
+      <button type="button" className="navbar__add" aria-label="Add bookmark" onClick={openAddModal}>
         +
       </button>
 

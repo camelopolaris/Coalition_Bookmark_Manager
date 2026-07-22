@@ -21,6 +21,24 @@ const port = 3000;
 //db contains initialized database with config information
 const db = require('./postgresConfig');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) {
+        return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    try {
+        req.user = jwt.verify(token, JWT_SECRET);
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+}
+
 app.get('/', (req, res) => {
 
     res.json("Coalition backend API running!");
@@ -46,7 +64,7 @@ app.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid username or password' })
         }
 
-        const token = jwt.sign({ userId: user.user_id, username: user.username }, process.env.JWT_SECRET || 'dev-secret', {
+        const token = jwt.sign({ userId: user.user_id, username: user.username }, JWT_SECRET, {
             expiresIn: '1h',
         })
 
@@ -81,7 +99,7 @@ app.post('/signup', async (req, res) => {
             [username, password],
         )
 
-        const token = jwt.sign({ userId: createdUser.user_id, username: createdUser.username }, process.env.JWT_SECRET || 'dev-secret', {
+        const token = jwt.sign({ userId: createdUser.user_id, username: createdUser.username }, JWT_SECRET, {
             expiresIn: '1h',
         })
 
@@ -96,35 +114,79 @@ app.post('/signup', async (req, res) => {
 //MARK: GET requests
 
 //MARK: GET all bookmarks
-app.get('/bookmarks', (req, res) => {
+app.get('/bookmarks', authenticateToken, async (req, res) => {
+    try {
+        const bookmarks = await db.any(
+            `SELECT bookmark_id, name, url, user_id
+             FROM bookmarks
+             WHERE user_id = $1
+             ORDER BY bookmark_id DESC`,
+            [req.user.userId],
+        );
 
-    const query = 'SELECT * FROM bookmarks';
-    db.any(query).then((data) => {
-
-        console.log("Sending: ", data);
-        res.json(data);
-    });
-
+        return res.json(bookmarks);
+    } catch (error) {
+        console.error('Get bookmarks error:', error);
+        return res.status(500).json({ message: 'Unable to fetch bookmarks' });
+    }
 });
 //MARK: GET specific bookmark
-app.get('/bookmarks/:id', (req, res) => {
-    const id = req.params.id;
+app.get('/bookmarks/:id', authenticateToken, async (req, res) => {
+    const id = Number(req.params.id);
 
-    const query = 'SELECT * FROM bookmarks WHERE bookmark_id = $1'
-    db.any(query, id).then((data) => {
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: 'Invalid bookmark id' });
+    }
 
-        console.log("Sending: ", data);
+    try {
+        const bookmark = await db.oneOrNone(
+            `SELECT bookmark_id, name, url, user_id
+             FROM bookmarks
+             WHERE bookmark_id = $1
+               AND user_id = $2`,
+            [id, req.user.userId],
+        );
 
-        res.json(data);
-    })
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        return res.json(bookmark);
+    } catch (error) {
+        console.error('Get bookmark error:', error);
+        return res.status(500).json({ message: 'Unable to fetch bookmark' });
+    }
 });
 //MARK: POST requests
 //Create a new bookmark
 
-app.post('/bookmarks',  (req, res) => {
-    const bookmarkName = req.body.name;
-    const bookmarkUrl = req.body.url;
-})
+app.post('/bookmarks', authenticateToken, async (req, res) => {
+    const { name, url } = req.body || {};
+    const bookmarkName = typeof name === 'string' ? name.trim() : '';
+    const bookmarkUrl = typeof url === 'string' ? url.trim() : '';
+
+    if (!bookmarkName || !bookmarkUrl) {
+        return res.status(400).json({ message: 'Name and URL are required' });
+    }
+
+    if (bookmarkName.length > 255) {
+        return res.status(400).json({ message: 'Name must be 255 characters or fewer' });
+    }
+
+    try {
+        const bookmark = await db.one(
+            `INSERT INTO bookmarks (name, url, user_id)
+             VALUES ($1, $2, $3)
+             RETURNING bookmark_id, name, url, user_id`,
+            [bookmarkName, bookmarkUrl, req.user.userId],
+        );
+
+        return res.status(201).json(bookmark);
+    } catch (error) {
+        console.error('Create bookmark error:', error);
+        return res.status(500).json({ message: 'Unable to create bookmark' });
+    }
+});
 
 //MARK: PATCH requests
 

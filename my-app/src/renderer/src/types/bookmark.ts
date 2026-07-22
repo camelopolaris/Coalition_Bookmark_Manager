@@ -5,20 +5,9 @@ export interface Bookmark {
   user_id?: number
 }
 
-export const MOCK_BOOKMARKS: Bookmark[] = [
-  {
-    bookmark_id: 1,
-    name: 'PostgreSQL Home Page',
-    url: 'https://www.postgresql.org/',
-  },
-  {
-    bookmark_id: 2,
-    name: 'University of Georgia',
-    url: 'https://www.uga.edu/',
-  },
-  {
-    bookmark_id: 3,
-    name: 'React Documentation',
-    url: 'https://react.dev/',
-  },
-]
+export interface CreateBookmarkInput {
+  name: string
+  url: string
+}
+
+export const BOOKMARK_NAME_MAX_LENGTH = 255
