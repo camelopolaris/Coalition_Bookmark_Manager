@@ -77,7 +77,11 @@ function parseBookmarkBody(body, { requireAll = false, allowPartial = false } = 
     }
 
     if (allowPartial && Object.keys(parsed).length === 0 && errors.length === 0) {
-        errors.push('At least one field must be provided');
+        const hasFolderId = body?.folder_id !== undefined;
+
+        if (!hasFolderId) {
+            errors.push('At least one field must be provided');
+        }
     }
 
     return { parsed, errors };

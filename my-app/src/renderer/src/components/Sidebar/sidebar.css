@@ -69,6 +69,11 @@
   padding: 0.35rem 0.45rem;
   border-radius: 4px;
   min-height: 2rem;
+  cursor: grab;
+}
+
+.sidebar__folder-row:active {
+  cursor: grabbing;
 }
 
 .sidebar__folder-row--active {

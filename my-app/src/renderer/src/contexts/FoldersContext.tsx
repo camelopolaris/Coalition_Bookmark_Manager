@@ -11,6 +11,7 @@ import { useAuth } from '@renderer/contexts/AuthContext'
 import {
   CreateFolderInput,
   Folder,
+  MoveFolderInput,
   RenameFolderInput,
 } from '@renderer/types/folder'
 
@@ -33,6 +34,10 @@ interface FoldersContextValue {
   renameFolder: (
     folderId: number,
     input: RenameFolderInput,
+  ) => Promise<{ success: boolean; message?: string }>
+  moveFolder: (
+    folderId: number,
+    input: MoveFolderInput,
   ) => Promise<{ success: boolean; message?: string }>
   deleteFolder: (
     folderId: number,
@@ -145,6 +150,39 @@ export function FoldersProvider({ children }: PropsWithChildren) {
     [auth],
   )
 
+  const moveFolder = useCallback(
+    async (folderId: number, input: MoveFolderInput) => {
+      try {
+        const response = await auth.fetchWithAuth(`/folders/${folderId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        })
+
+        const responseJSON = await response?.json().catch(() => ({}))
+
+        if (!response?.ok) {
+          return {
+            success: false,
+            message: responseJSON?.message || 'Unable to move folder',
+          }
+        }
+
+        const folder = responseJSON as Folder
+        setFolders((current) =>
+          current
+            .map((item) => (item.folder_id === folderId ? folder : item))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        )
+        return { success: true }
+      } catch (error) {
+        console.error('Failed to move folder.', error)
+        return { success: false, message: 'Unable to move folder' }
+      }
+    },
+    [auth],
+  )
+
   const deleteFolder = useCallback(
     async (folderId: number) => {
       try {
@@ -199,6 +237,7 @@ export function FoldersProvider({ children }: PropsWithChildren) {
       closeDeleteFolderModal: () => setDeleteTarget(null),
       createFolder,
       renameFolder,
+      moveFolder,
       deleteFolder,
     }),
     [
@@ -211,6 +250,7 @@ export function FoldersProvider({ children }: PropsWithChildren) {
       loadFolders,
       createFolder,
       renameFolder,
+      moveFolder,
       deleteFolder,
     ],
   )

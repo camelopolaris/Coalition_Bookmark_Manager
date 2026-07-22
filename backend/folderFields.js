@@ -30,9 +30,41 @@ function parseParentId(value) {
     return { value: parentId };
 }
 
+function parseFolderBody(body, { allowPartial = false } = {}) {
+    const parsed = {};
+    const errors = [];
+
+    if (body?.name !== undefined) {
+        const nameResult = parseFolderName(body.name);
+
+        if (nameResult.error) {
+            errors.push(nameResult.error);
+        } else {
+            parsed.name = nameResult.value;
+        }
+    }
+
+    if (body?.parent_id !== undefined) {
+        const parentResult = parseParentId(body.parent_id);
+
+        if (parentResult.error) {
+            errors.push(parentResult.error);
+        } else {
+            parsed.parent_id = parentResult.value;
+        }
+    }
+
+    if (allowPartial && Object.keys(parsed).length === 0 && errors.length === 0) {
+        errors.push('At least one field must be provided');
+    }
+
+    return { parsed, errors };
+}
+
 module.exports = {
     FOLDER_NAME_MAX_LENGTH,
     FOLDER_SELECT_COLUMNS,
     parseFolderName,
     parseParentId,
+    parseFolderBody,
 };

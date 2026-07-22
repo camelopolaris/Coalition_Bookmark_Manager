@@ -1,6 +1,6 @@
 import { Bookmark } from '@renderer/types/bookmark'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
-import { BOOKMARK_DRAG_MIME } from '@renderer/constants/drag'
+import { setBookmarkDragData } from '@renderer/constants/drag'
 import './bookmark-card.css'
 
 function EditIcon() {
@@ -44,8 +44,7 @@ function BookmarkCard({ bookmark }: BookmarkCardProps) {
       className="bookmark-card bookmark-card--clickable"
       draggable
       onDragStart={(event) => {
-        event.dataTransfer.setData(BOOKMARK_DRAG_MIME, String(bookmark.bookmark_id))
-        event.dataTransfer.effectAllowed = 'move'
+        setBookmarkDragData(event.dataTransfer, bookmark.bookmark_id)
         event.stopPropagation()
       }}
       onClick={() => selectBookmark(bookmark.bookmark_id)}

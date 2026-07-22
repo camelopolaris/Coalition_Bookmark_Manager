@@ -28,6 +28,7 @@ const {
 } = require('./bookmarkFields');
 const {
     FOLDER_SELECT_COLUMNS,
+    parseFolderBody,
     parseFolderName,
     parseParentId,
 } = require('./folderFields');
@@ -80,6 +81,35 @@ function collectDescendantFolderIds(folders, rootFolderId) {
     }
 
     return [...ids];
+}
+
+async function validateFolderParentMove(userId, folderId, newParentId) {
+    if (newParentId === folderId) {
+        return 'A folder cannot be its own parent';
+    }
+
+    if (newParentId !== null) {
+        const parentFolder = await getUserFolder(userId, newParentId);
+
+        if (!parentFolder) {
+            return 'Parent folder not found';
+        }
+    }
+
+    const folders = await db.any(
+        `SELECT folder_id, parent_id
+         FROM folders
+         WHERE user_id = $1`,
+        [userId],
+    );
+
+    const descendantIds = collectDescendantFolderIds(folders, folderId);
+
+    if (newParentId !== null && descendantIds.includes(newParentId)) {
+        return 'A folder cannot be moved into its own subfolder';
+    }
+
+    return null;
 }
 
 function getLeafFolderIds(folders, folderIds) {
@@ -223,20 +253,39 @@ app.patch('/folders/:id', authenticateToken, async (req, res) => {
         return res.status(400).json({ message: 'Invalid folder id' });
     }
 
-    const nameResult = parseFolderName(req.body?.name);
+    const { parsed, errors } = parseFolderBody(req.body, { allowPartial: true });
 
-    if (nameResult.error) {
-        return res.status(400).json({ message: nameResult.error });
+    if (errors.length > 0) {
+        return res.status(400).json({ message: errors[0] });
     }
+
+    const updateFields = Object.keys(parsed);
+
+    if (updateFields.length === 0) {
+        return res.status(400).json({ message: 'At least one field must be provided' });
+    }
+
+    if (parsed.parent_id !== undefined) {
+        const moveError = await validateFolderParentMove(req.user.userId, id, parsed.parent_id);
+
+        if (moveError) {
+            return res.status(400).json({ message: moveError });
+        }
+    }
+
+    const values = updateFields.map((field) => parsed[field]);
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const folderIdParam = updateFields.length + 1;
+    const userIdParam = updateFields.length + 2;
 
     try {
         const folder = await db.oneOrNone(
             `UPDATE folders
-             SET name = $1
-             WHERE folder_id = $2
-               AND user_id = $3
+             SET ${setClause}
+             WHERE folder_id = $${folderIdParam}
+               AND user_id = $${userIdParam}
              RETURNING ${FOLDER_SELECT_COLUMNS}`,
-            [nameResult.value, id, req.user.userId],
+            [...values, id, req.user.userId],
         );
 
         if (!folder) {
@@ -245,8 +294,8 @@ app.patch('/folders/:id', authenticateToken, async (req, res) => {
 
         return res.json(folder);
     } catch (error) {
-        console.error('Rename folder error:', error);
-        return res.status(500).json({ message: 'Unable to rename folder' });
+        console.error('Update folder error:', error);
+        return res.status(500).json({ message: 'Unable to update folder' });
     }
 });
 

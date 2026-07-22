@@ -18,7 +18,50 @@ export interface RenameFolderInput {
   name: string
 }
 
+export interface MoveFolderInput {
+  parent_id: number | null
+}
+
 export const FOLDER_NAME_MAX_LENGTH = 255
+
+export function collectDescendantFolderIds(folders: Folder[], rootFolderId: number) {
+  const ids = new Set<number>([rootFolderId])
+  let changed = true
+
+  while (changed) {
+    changed = false
+
+    for (const folder of folders) {
+      if (
+        folder.parent_id !== null &&
+        ids.has(folder.parent_id) &&
+        !ids.has(folder.folder_id)
+      ) {
+        ids.add(folder.folder_id)
+        changed = true
+      }
+    }
+  }
+
+  return [...ids]
+}
+
+export function canMoveFolderToParent(
+  folders: Folder[],
+  folderId: number,
+  parentId: number | null,
+) {
+  if (parentId === folderId) {
+    return false
+  }
+
+  if (parentId === null) {
+    return true
+  }
+
+  const descendantIds = collectDescendantFolderIds(folders, folderId)
+  return !descendantIds.includes(parentId)
+}
 
 export function validateFolderName(name: string): string | null {
   const trimmed = name.trim()
