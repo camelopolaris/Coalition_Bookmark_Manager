@@ -1,0 +1,90 @@
+.bookmark-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 36, 22, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+}
+
+.bookmark-modal {
+  width: 100%;
+  max-width: 480px;
+  background: #fbf8f1;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  padding: 1.5rem;
+}
+
+.bookmark-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.bookmark-modal__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #2c2416;
+}
+
+.bookmark-modal__close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #5c5347;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.bookmark-modal__close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.bookmark-modal__error {
+  background: #fde8e8;
+  border: 1px solid #f5a5a5;
+  color: #8b1e1e;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.bookmark-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.bookmark-modal__button {
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.bookmark-modal__button--secondary {
+  background: #ebe2d3;
+  color: #3d3528;
+}
+
+.bookmark-modal__button--secondary:hover {
+  background: #dfd3c2;
+}
+
+.bookmark-modal__button--primary {
+  background: #9b8c73;
+  color: #fbf8f1;
+}
+
+.bookmark-modal__button--primary:hover:not(:disabled) {
+  background: #8a7c65;
+}
+
+.bookmark-modal__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

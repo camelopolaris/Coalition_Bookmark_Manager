@@ -6,6 +6,7 @@ import { BookmarksProvider } from '@renderer/contexts/BookmarksContext'
 import { SearchProvider } from '@renderer/contexts/SearchContext'
 import AddBookmarkModal from '@renderer/components/AddBookmarkModal/AddBookmarkModal'
 import DeleteBookmarkModal from '@renderer/components/DeleteBookmarkModal/DeleteBookmarkModal'
+import EditBookmarkModal from '@renderer/components/EditBookmarkModal/EditBookmarkModal'
 import Navbar from '@renderer/components/Navbar/Navbar'
 
 export interface RootRouterContext {
@@ -31,6 +32,7 @@ const RootLayout = () => {
         <Navbar />
         <Outlet />
         <AddBookmarkModal />
+        <EditBookmarkModal />
         <DeleteBookmarkModal />
         <TanStackRouterDevtools />
       </BookmarksProvider>

@@ -2,27 +2,28 @@ import { FormEvent, useEffect, useState } from 'react'
 import BookmarkForm from '@renderer/components/BookmarkForm/BookmarkForm'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import {
+  bookmarkToFormFields,
   createEmptyBookmarkFormFields,
   normalizeBookmarkFormFields,
   validateBookmarkFormFields,
 } from '@renderer/types/bookmark'
 import '../BookmarkModal/bookmark-modal.css'
 
-function AddBookmarkModal() {
-  const { isAddModalOpen, closeAddModal, createBookmark } = useBookmarks()
+function EditBookmarkModal() {
+  const { editTarget, closeEditModal, updateBookmark } = useBookmarks()
   const [fields, setFields] = useState(createEmptyBookmarkFormFields())
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    if (!isAddModalOpen) {
-      setFields(createEmptyBookmarkFormFields())
+    if (editTarget) {
+      setFields(bookmarkToFormFields(editTarget))
       setError('')
       setIsSubmitting(false)
     }
-  }, [isAddModalOpen])
+  }, [editTarget])
 
-  if (!isAddModalOpen) {
+  if (!editTarget) {
     return null
   }
 
@@ -38,35 +39,38 @@ function AddBookmarkModal() {
 
     setIsSubmitting(true)
 
-    const result = await createBookmark(normalizeBookmarkFormFields(fields))
+    const result = await updateBookmark(
+      editTarget.bookmark_id,
+      normalizeBookmarkFormFields(fields),
+    )
 
     if (!result.success) {
-      setError(result.message || 'Unable to create bookmark.')
+      setError(result.message || 'Unable to update bookmark.')
       setIsSubmitting(false)
       return
     }
 
-    closeAddModal()
+    closeEditModal()
   }
 
   return (
-    <div className="bookmark-modal__backdrop" onClick={closeAddModal}>
+    <div className="bookmark-modal__backdrop" onClick={closeEditModal}>
       <div
         className="bookmark-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="add-bookmark-title"
+        aria-labelledby="edit-bookmark-title"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="bookmark-modal__header">
-          <h2 id="add-bookmark-title" className="bookmark-modal__title">
-            Add bookmark
+          <h2 id="edit-bookmark-title" className="bookmark-modal__title">
+            Edit bookmark
           </h2>
           <button
             type="button"
             className="bookmark-modal__close"
             aria-label="Close"
-            onClick={closeAddModal}
+            onClick={closeEditModal}
           >
             ×
           </button>
@@ -75,13 +79,13 @@ function AddBookmarkModal() {
         <form onSubmit={handleSubmit}>
           {error ? <div className="bookmark-modal__error">{error}</div> : null}
 
-          <BookmarkForm fields={fields} idPrefix="add-bookmark" onChange={setFields} />
+          <BookmarkForm fields={fields} idPrefix="edit-bookmark" onChange={setFields} />
 
           <div className="bookmark-modal__actions">
             <button
               type="button"
               className="bookmark-modal__button bookmark-modal__button--secondary"
-              onClick={closeAddModal}
+              onClick={closeEditModal}
               disabled={isSubmitting}
             >
               Cancel
@@ -91,7 +95,7 @@ function AddBookmarkModal() {
               className="bookmark-modal__button bookmark-modal__button--primary"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Saving...' : 'Save bookmark'}
+              {isSubmitting ? 'Saving...' : 'Save changes'}
             </button>
           </div>
         </form>
@@ -100,4 +104,4 @@ function AddBookmarkModal() {
   )
 }
 
-export default AddBookmarkModal
+export default EditBookmarkModal

@@ -35,7 +35,7 @@ interface BookmarkCardProps {
 }
 
 function BookmarkCard({ bookmark }: BookmarkCardProps) {
-  const { openDeleteModal } = useBookmarks()
+  const { openEditModal, openDeleteModal } = useBookmarks()
   const hostname = getHostname(bookmark.url)
 
   return (
@@ -64,7 +64,12 @@ function BookmarkCard({ bookmark }: BookmarkCardProps) {
         </div>
 
         <div className="bookmark-card__actions">
-          <button type="button" className="bookmark-card__action" aria-label={`Edit ${bookmark.name}`}>
+          <button
+            type="button"
+            className="bookmark-card__action"
+            aria-label={`Edit ${bookmark.name}`}
+            onClick={() => openEditModal(bookmark)}
+          >
             <EditIcon />
           </button>
           <button

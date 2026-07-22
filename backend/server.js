@@ -20,6 +20,11 @@ app.use(cors({origin: "http://localhost:5173"}));
 const port = 3000;
 //db contains initialized database with config information
 const db = require('./postgresConfig');
+const {
+    BOOKMARK_SELECT_COLUMNS,
+    BOOKMARK_WRITABLE_FIELDS,
+    parseBookmarkBody,
+} = require('./bookmarkFields');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -117,7 +122,7 @@ app.post('/signup', async (req, res) => {
 app.get('/bookmarks', authenticateToken, async (req, res) => {
     try {
         const bookmarks = await db.any(
-            `SELECT bookmark_id, name, url, user_id
+            `SELECT ${BOOKMARK_SELECT_COLUMNS}
              FROM bookmarks
              WHERE user_id = $1
              ORDER BY bookmark_id DESC`,
@@ -140,7 +145,7 @@ app.get('/bookmarks/:id', authenticateToken, async (req, res) => {
 
     try {
         const bookmark = await db.oneOrNone(
-            `SELECT bookmark_id, name, url, user_id
+            `SELECT ${BOOKMARK_SELECT_COLUMNS}
              FROM bookmarks
              WHERE bookmark_id = $1
                AND user_id = $2`,
@@ -161,24 +166,18 @@ app.get('/bookmarks/:id', authenticateToken, async (req, res) => {
 //Create a new bookmark
 
 app.post('/bookmarks', authenticateToken, async (req, res) => {
-    const { name, url } = req.body || {};
-    const bookmarkName = typeof name === 'string' ? name.trim() : '';
-    const bookmarkUrl = typeof url === 'string' ? url.trim() : '';
+    const { parsed, errors } = parseBookmarkBody(req.body, { requireAll: true });
 
-    if (!bookmarkName || !bookmarkUrl) {
-        return res.status(400).json({ message: 'Name and URL are required' });
-    }
-
-    if (bookmarkName.length > 255) {
-        return res.status(400).json({ message: 'Name must be 255 characters or fewer' });
+    if (errors.length > 0) {
+        return res.status(400).json({ message: errors[0] });
     }
 
     try {
         const bookmark = await db.one(
-            `INSERT INTO bookmarks (name, url, user_id)
+            `INSERT INTO bookmarks (${BOOKMARK_WRITABLE_FIELDS.join(', ')}, user_id)
              VALUES ($1, $2, $3)
-             RETURNING bookmark_id, name, url, user_id`,
-            [bookmarkName, bookmarkUrl, req.user.userId],
+             RETURNING ${BOOKMARK_SELECT_COLUMNS}`,
+            [...BOOKMARK_WRITABLE_FIELDS.map((field) => parsed[field]), req.user.userId],
         );
 
         return res.status(201).json(bookmark);
@@ -191,9 +190,47 @@ app.post('/bookmarks', authenticateToken, async (req, res) => {
 //MARK: PATCH requests
 
 //Update a given bookmark
-app.patch('/bookmarks/:id', (req, res) => {
-    //TODO: Figure out how to dynamically update columns depending on what information is and / or isn't updated
+app.patch('/bookmarks/:id', authenticateToken, async (req, res) => {
+    const id = Number(req.params.id);
 
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: 'Invalid bookmark id' });
+    }
+
+    const { parsed, errors } = parseBookmarkBody(req.body, { allowPartial: true });
+
+    if (errors.length > 0) {
+        return res.status(400).json({ message: errors[0] });
+    }
+
+    const updateFields = BOOKMARK_WRITABLE_FIELDS.filter((field) => parsed[field] !== undefined);
+
+    if (updateFields.length === 0) {
+        return res.status(400).json({ message: 'At least one field must be provided' });
+    }
+
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const values = updateFields.map((field) => parsed[field]);
+
+    try {
+        const bookmark = await db.oneOrNone(
+            `UPDATE bookmarks
+             SET ${setClause}
+             WHERE bookmark_id = $${updateFields.length + 1}
+               AND user_id = $${updateFields.length + 2}
+             RETURNING ${BOOKMARK_SELECT_COLUMNS}`,
+            [...values, id, req.user.userId],
+        );
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        return res.json(bookmark);
+    } catch (error) {
+        console.error('Update bookmark error:', error);
+        return res.status(500).json({ message: 'Unable to update bookmark' });
+    }
 });
 
 //MARK: DELETE requests

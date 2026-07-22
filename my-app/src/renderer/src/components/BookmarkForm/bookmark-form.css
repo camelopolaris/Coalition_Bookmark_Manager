@@ -1,0 +1,38 @@
+.bookmark-form__field {
+  margin-bottom: 1rem;
+}
+
+.bookmark-form__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #3d3528;
+}
+
+.bookmark-form__input,
+.bookmark-form__textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #c4b59c;
+  border-radius: 8px;
+  background: #fff;
+  color: #2c2416;
+}
+
+.bookmark-form__textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.bookmark-form__input:focus,
+.bookmark-form__textarea:focus {
+  outline: 2px solid #9b8c73;
+  outline-offset: 1px;
+}
+
+.bookmark-form__hint {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: #7a6f5f;
+}
