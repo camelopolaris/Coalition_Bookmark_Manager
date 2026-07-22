@@ -101,10 +101,10 @@ function FolderTreeItem({
     setIsExpanded(true)
   }
 
-  const handleSelectFolder = () => {
+  const handleFolderActivate = () => {
+    setIsExpanded((current) => !current)
     selectFolder(node.folder_id)
     clearSelectedBookmark()
-    setIsExpanded(true)
   }
 
   return (
@@ -121,12 +121,12 @@ function FolderTreeItem({
           type="button"
           className="sidebar__tree-toggle"
           aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
-          onClick={() => setIsExpanded((current) => !current)}
+          onClick={handleFolderActivate}
         >
           {isExpanded ? '▾' : '▸'}
         </button>
 
-        <button type="button" className="sidebar__tree-label sidebar__tree-label--folder" onClick={handleSelectFolder}>
+        <button type="button" className="sidebar__tree-label sidebar__tree-label--folder" onClick={handleFolderActivate}>
           {node.name}
         </button>
       </div>
@@ -218,6 +218,12 @@ function UncategorizedSection({ bookmarks }: UncategorizedSectionProps) {
     setIsExpanded(true)
   }
 
+  const handleUncategorizedActivate = () => {
+    setIsExpanded((current) => !current)
+    selectFolder(null)
+    clearSelectedBookmark()
+  }
+
   return (
     <div className="sidebar__folder-group">
       <div
@@ -230,7 +236,7 @@ function UncategorizedSection({ bookmarks }: UncategorizedSectionProps) {
           type="button"
           className="sidebar__tree-toggle"
           aria-label={isExpanded ? 'Collapse uncategorized' : 'Expand uncategorized'}
-          onClick={() => setIsExpanded((current) => !current)}
+          onClick={handleUncategorizedActivate}
         >
           {isExpanded ? '▾' : '▸'}
         </button>
@@ -238,10 +244,7 @@ function UncategorizedSection({ bookmarks }: UncategorizedSectionProps) {
         <button
           type="button"
           className="sidebar__tree-label sidebar__tree-label--folder"
-          onClick={() => {
-            selectFolder(null)
-            clearSelectedBookmark()
-          }}
+          onClick={handleUncategorizedActivate}
         >
           Uncategorized
         </button>

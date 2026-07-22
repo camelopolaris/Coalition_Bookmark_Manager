@@ -126,10 +126,21 @@
 .sidebar__tree-item--bookmark {
   font-weight: 500;
   cursor: grab;
+  color: #3d3528;
 }
 
 .sidebar__tree-item--bookmark:active {
   cursor: grabbing;
+}
+
+.sidebar__tree-item--bookmark:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.sidebar__tree-item--bookmark.sidebar__tree-item--active {
+  background: #f3eacd;
+  font-weight: 600;
+  color: #2c2416;
 }
 
 .sidebar__tree-item:hover {
@@ -137,7 +148,6 @@
 }
 
 .sidebar__tree-item--active {
-  background: #fbf8f1;
   font-weight: 600;
   color: #2c2416;
 }
