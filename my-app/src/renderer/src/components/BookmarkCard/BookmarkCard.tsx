@@ -1,4 +1,5 @@
 import { Bookmark } from '@renderer/types/bookmark'
+import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import './bookmark-card.css'
 
 function EditIcon() {
@@ -34,6 +35,7 @@ interface BookmarkCardProps {
 }
 
 function BookmarkCard({ bookmark }: BookmarkCardProps) {
+  const { openDeleteModal } = useBookmarks()
   const hostname = getHostname(bookmark.url)
 
   return (
@@ -65,7 +67,12 @@ function BookmarkCard({ bookmark }: BookmarkCardProps) {
           <button type="button" className="bookmark-card__action" aria-label={`Edit ${bookmark.name}`}>
             <EditIcon />
           </button>
-          <button type="button" className="bookmark-card__action" aria-label={`Delete ${bookmark.name}`}>
+          <button
+            type="button"
+            className="bookmark-card__action"
+            aria-label={`Delete ${bookmark.name}`}
+            onClick={() => openDeleteModal(bookmark)}
+          >
             <DeleteIcon />
           </button>
         </div>

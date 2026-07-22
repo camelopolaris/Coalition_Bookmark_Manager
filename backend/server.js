@@ -196,6 +196,58 @@ app.patch('/bookmarks/:id', (req, res) => {
 
 });
 
+//MARK: DELETE requests
+
+app.delete('/bookmarks/:id', authenticateToken, async (req, res) => {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: 'Invalid bookmark id' });
+    }
+
+    try {
+        const deleted = await db.tx(async (transaction) => {
+            const bookmark = await transaction.oneOrNone(
+                `SELECT bookmark_id
+                 FROM bookmarks
+                 WHERE bookmark_id = $1
+                   AND user_id = $2`,
+                [id, req.user.userId],
+            );
+
+            if (!bookmark) {
+                return false;
+            }
+
+            await transaction.none(
+                'DELETE FROM bookmark_timestamps WHERE bookmark_id = $1',
+                [id],
+            );
+            await transaction.none(
+                'DELETE FROM bookmark_page_numbers WHERE bookmark_id = $1',
+                [id],
+            );
+            await transaction.none(
+                `DELETE FROM bookmarks
+                 WHERE bookmark_id = $1
+                   AND user_id = $2`,
+                [id, req.user.userId],
+            );
+
+            return true;
+        });
+
+        if (!deleted) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Delete bookmark error:', error);
+        return res.status(500).json({ message: 'Unable to delete bookmark' });
+    }
+});
+
 //MARK: Start server
 app.listen(port, () => {
     console.log(`Coalition backend API is listening on port ${port}`);

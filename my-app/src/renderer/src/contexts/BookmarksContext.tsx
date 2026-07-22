@@ -14,10 +14,14 @@ interface BookmarksContextValue {
   bookmarks: Bookmark[]
   isLoading: boolean
   isAddModalOpen: boolean
+  deleteTarget: Bookmark | null
   openAddModal: () => void
   closeAddModal: () => void
+  openDeleteModal: (bookmark: Bookmark) => void
+  closeDeleteModal: () => void
   loadBookmarks: () => Promise<void>
   createBookmark: (input: CreateBookmarkInput) => Promise<{ success: boolean; message?: string }>
+  deleteBookmark: (bookmarkId: number) => Promise<{ success: boolean; message?: string }>
 }
 
 const BookmarksContext = createContext<BookmarksContextValue | undefined>(undefined)
@@ -27,6 +31,7 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null)
 
   const loadBookmarks = useCallback(async () => {
     setIsLoading(true)
@@ -87,17 +92,49 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
     [auth],
   )
 
+  const deleteBookmark = useCallback(
+    async (bookmarkId: number) => {
+      try {
+        const response = await auth.fetchWithAuth(`/bookmarks/${bookmarkId}`, {
+          method: 'DELETE',
+        })
+
+        const responseJSON = await response?.json().catch(() => ({}))
+
+        if (!response?.ok) {
+          return {
+            success: false,
+            message: responseJSON?.message || 'Unable to delete bookmark',
+          }
+        }
+
+        setBookmarks((current) =>
+          current.filter((bookmark) => bookmark.bookmark_id !== bookmarkId),
+        )
+        return { success: true }
+      } catch (error) {
+        console.error('Failed to delete bookmark.', error)
+        return { success: false, message: 'Unable to delete bookmark' }
+      }
+    },
+    [auth],
+  )
+
   const value = useMemo<BookmarksContextValue>(
     () => ({
       bookmarks,
       isLoading,
       isAddModalOpen,
+      deleteTarget,
       openAddModal: () => setIsAddModalOpen(true),
       closeAddModal: () => setIsAddModalOpen(false),
+      openDeleteModal: (bookmark) => setDeleteTarget(bookmark),
+      closeDeleteModal: () => setDeleteTarget(null),
       loadBookmarks,
       createBookmark,
+      deleteBookmark,
     }),
-    [bookmarks, isLoading, isAddModalOpen, loadBookmarks, createBookmark],
+    [bookmarks, isLoading, isAddModalOpen, deleteTarget, loadBookmarks, createBookmark, deleteBookmark],
   )
 
   return <BookmarksContext.Provider value={value}>{children}</BookmarksContext.Provider>

@@ -5,6 +5,7 @@ import { AuthState } from '@renderer/contexts/AuthContext'
 import { BookmarksProvider } from '@renderer/contexts/BookmarksContext'
 import { SearchProvider } from '@renderer/contexts/SearchContext'
 import AddBookmarkModal from '@renderer/components/AddBookmarkModal/AddBookmarkModal'
+import DeleteBookmarkModal from '@renderer/components/DeleteBookmarkModal/DeleteBookmarkModal'
 import Navbar from '@renderer/components/Navbar/Navbar'
 
 export interface RootRouterContext {
@@ -30,6 +31,7 @@ const RootLayout = () => {
         <Navbar />
         <Outlet />
         <AddBookmarkModal />
+        <DeleteBookmarkModal />
         <TanStackRouterDevtools />
       </BookmarksProvider>
     </SearchProvider>
