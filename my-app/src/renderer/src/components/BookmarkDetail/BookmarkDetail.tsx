@@ -1,5 +1,8 @@
 import { Bookmark } from '@renderer/types/bookmark'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
+import { useBookmarkAnnotations } from '@renderer/hooks/useBookmarkAnnotations'
+import BookmarkPageNumbersSection from '@renderer/components/BookmarkDetail/BookmarkPageNumbersSection'
+import BookmarkTimestampsSection from '@renderer/components/BookmarkDetail/BookmarkTimestampsSection'
 import './bookmark-detail.css'
 
 function EditIcon() {
@@ -36,6 +39,18 @@ interface BookmarkDetailProps {
 
 function BookmarkDetail({ bookmark }: BookmarkDetailProps) {
   const { clearSelectedBookmark, openEditModal, openDeleteModal } = useBookmarks()
+  const {
+    timestamps,
+    pageNumbers,
+    isLoading: isAnnotationsLoading,
+    error: annotationsError,
+    createTimestamp,
+    updateTimestamp,
+    deleteTimestamp,
+    createPageNumber,
+    updatePageNumber,
+    deletePageNumber,
+  } = useBookmarkAnnotations(bookmark.bookmark_id)
   const hostname = getHostname(bookmark.url)
 
   return (
@@ -107,6 +122,26 @@ function BookmarkDetail({ bookmark }: BookmarkDetailProps) {
           >
             Open bookmark
           </a>
+
+          {annotationsError ? (
+            <p className="bookmark-detail__annotation-error">{annotationsError}</p>
+          ) : null}
+
+          <BookmarkTimestampsSection
+            timestamps={timestamps}
+            isLoading={isAnnotationsLoading}
+            onCreate={createTimestamp}
+            onUpdate={updateTimestamp}
+            onDelete={deleteTimestamp}
+          />
+
+          <BookmarkPageNumbersSection
+            pageNumbers={pageNumbers}
+            isLoading={isAnnotationsLoading}
+            onCreate={createPageNumber}
+            onUpdate={updatePageNumber}
+            onDelete={deletePageNumber}
+          />
         </div>
       </article>
     </div>

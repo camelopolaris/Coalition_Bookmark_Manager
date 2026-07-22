@@ -32,6 +32,15 @@ const {
     parseFolderName,
     parseParentId,
 } = require('./folderFields');
+const {
+    TIMESTAMP_SELECT_COLUMNS,
+    PAGE_NUMBER_SELECT_COLUMNS,
+    parseTimestampValue,
+    parseNoteContent,
+    parsePageNumber,
+    mapTimestampRow,
+    mapPageNumberRow,
+} = require('./bookmarkAnnotationFields');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -63,6 +72,26 @@ async function getUserFolder(userId, folderId) {
            AND user_id = $2`,
         [folderId, userId],
     );
+}
+
+async function getUserBookmark(userId, bookmarkId) {
+    return db.oneOrNone(
+        `SELECT bookmark_id
+         FROM bookmarks
+         WHERE bookmark_id = $1
+           AND user_id = $2`,
+        [bookmarkId, userId],
+    );
+}
+
+function parseBookmarkIdParam(value) {
+    const bookmarkId = Number(value);
+
+    if (!Number.isInteger(bookmarkId)) {
+        return { error: 'Invalid bookmark id' };
+    }
+
+    return { value: bookmarkId };
 }
 
 function collectDescendantFolderIds(folders, rootFolderId) {
@@ -578,6 +607,374 @@ app.delete('/bookmarks/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Delete bookmark error:', error);
         return res.status(500).json({ message: 'Unable to delete bookmark' });
+    }
+});
+
+//MARK: Bookmark timestamps
+
+app.get('/bookmarks/:bookmarkId/timestamps', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const rows = await db.any(
+            `SELECT ${TIMESTAMP_SELECT_COLUMNS}
+             FROM bookmark_timestamps
+             WHERE bookmark_id = $1
+             ORDER BY timestamp_value ASC`,
+            [bookmarkResult.value],
+        );
+
+        return res.json(rows.map(mapTimestampRow));
+    } catch (error) {
+        console.error('Get bookmark timestamps error:', error);
+        return res.status(500).json({ message: 'Unable to fetch timestamps' });
+    }
+});
+
+app.post('/bookmarks/:bookmarkId/timestamps', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    const timestampResult = parseTimestampValue(req.body?.timestamp_value);
+    const noteResult = parseNoteContent(req.body?.note_content);
+
+    if (timestampResult.error) {
+        return res.status(400).json({ message: timestampResult.error });
+    }
+
+    if (noteResult.error) {
+        return res.status(400).json({ message: noteResult.error });
+    }
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const row = await db.one(
+            `INSERT INTO bookmark_timestamps (bookmark_id, timestamp_value, note_content)
+             VALUES ($1, $2::interval, $3)
+             RETURNING ${TIMESTAMP_SELECT_COLUMNS}`,
+            [bookmarkResult.value, timestampResult.value, noteResult.value],
+        );
+
+        return res.status(201).json(mapTimestampRow(row));
+    } catch (error) {
+        console.error('Create bookmark timestamp error:', error);
+        return res.status(500).json({ message: 'Unable to create timestamp' });
+    }
+});
+
+app.patch('/bookmarks/:bookmarkId/timestamps', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    const originalTimestampResult = parseTimestampValue(req.body?.original_timestamp_value);
+
+    if (originalTimestampResult.error) {
+        return res.status(400).json({ message: 'Original timestamp is required' });
+    }
+
+    const hasTimestampUpdate = req.body?.timestamp_value !== undefined;
+    const hasNoteUpdate = req.body?.note_content !== undefined;
+
+    if (!hasTimestampUpdate && !hasNoteUpdate) {
+        return res.status(400).json({ message: 'At least one field must be provided' });
+    }
+
+    const timestampResult = hasTimestampUpdate
+        ? parseTimestampValue(req.body.timestamp_value)
+        : null;
+    const noteResult = hasNoteUpdate ? parseNoteContent(req.body.note_content) : null;
+
+    if (timestampResult?.error) {
+        return res.status(400).json({ message: timestampResult.error });
+    }
+
+    if (noteResult?.error) {
+        return res.status(400).json({ message: noteResult.error });
+    }
+
+    const setParts = [];
+    const values = [];
+
+    if (timestampResult) {
+        setParts.push(`timestamp_value = $${setParts.length + 1}::interval`);
+        values.push(timestampResult.value);
+    }
+
+    if (noteResult) {
+        setParts.push(`note_content = $${setParts.length + 1}`);
+        values.push(noteResult.value);
+    }
+
+    const bookmarkIdParam = values.length + 1;
+    const originalTimestampParam = values.length + 2;
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const row = await db.oneOrNone(
+            `UPDATE bookmark_timestamps
+             SET ${setParts.join(', ')}
+             WHERE bookmark_id = $${bookmarkIdParam}
+               AND timestamp_value = $${originalTimestampParam}::interval
+             RETURNING ${TIMESTAMP_SELECT_COLUMNS}`,
+            [...values, bookmarkResult.value, originalTimestampResult.value],
+        );
+
+        if (!row) {
+            return res.status(404).json({ message: 'Timestamp not found' });
+        }
+
+        return res.json(mapTimestampRow(row));
+    } catch (error) {
+        console.error('Update bookmark timestamp error:', error);
+        return res.status(500).json({ message: 'Unable to update timestamp' });
+    }
+});
+
+app.delete('/bookmarks/:bookmarkId/timestamps', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    const timestampResult = parseTimestampValue(req.body?.timestamp_value);
+
+    if (timestampResult.error) {
+        return res.status(400).json({ message: timestampResult.error });
+    }
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const deleted = await db.result(
+            `DELETE FROM bookmark_timestamps
+             WHERE bookmark_id = $1
+               AND timestamp_value = $2::interval`,
+            [bookmarkResult.value, timestampResult.value],
+        );
+
+        if (deleted.rowCount === 0) {
+            return res.status(404).json({ message: 'Timestamp not found' });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Delete bookmark timestamp error:', error);
+        return res.status(500).json({ message: 'Unable to delete timestamp' });
+    }
+});
+
+//MARK: Bookmark page numbers
+
+app.get('/bookmarks/:bookmarkId/page-numbers', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const rows = await db.any(
+            `SELECT ${PAGE_NUMBER_SELECT_COLUMNS}
+             FROM bookmark_page_numbers
+             WHERE bookmark_id = $1
+             ORDER BY page_number ASC`,
+            [bookmarkResult.value],
+        );
+
+        return res.json(rows.map(mapPageNumberRow));
+    } catch (error) {
+        console.error('Get bookmark page numbers error:', error);
+        return res.status(500).json({ message: 'Unable to fetch page numbers' });
+    }
+});
+
+app.post('/bookmarks/:bookmarkId/page-numbers', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    const pageNumberResult = parsePageNumber(req.body?.page_number);
+    const noteResult = parseNoteContent(req.body?.note_content);
+
+    if (pageNumberResult.error) {
+        return res.status(400).json({ message: pageNumberResult.error });
+    }
+
+    if (noteResult.error) {
+        return res.status(400).json({ message: noteResult.error });
+    }
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const row = await db.one(
+            `INSERT INTO bookmark_page_numbers (bookmark_id, page_number, note_content)
+             VALUES ($1, $2, $3)
+             RETURNING ${PAGE_NUMBER_SELECT_COLUMNS}`,
+            [bookmarkResult.value, pageNumberResult.value, noteResult.value],
+        );
+
+        return res.status(201).json(mapPageNumberRow(row));
+    } catch (error) {
+        console.error('Create bookmark page number error:', error);
+        return res.status(500).json({ message: 'Unable to create page number' });
+    }
+});
+
+app.patch('/bookmarks/:bookmarkId/page-numbers', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    const originalPageNumberResult = parsePageNumber(req.body?.original_page_number);
+
+    if (originalPageNumberResult.error) {
+        return res.status(400).json({ message: 'Original page number is required' });
+    }
+
+    const hasPageNumberUpdate = req.body?.page_number !== undefined;
+    const hasNoteUpdate = req.body?.note_content !== undefined;
+
+    if (!hasPageNumberUpdate && !hasNoteUpdate) {
+        return res.status(400).json({ message: 'At least one field must be provided' });
+    }
+
+    const pageNumberResult = hasPageNumberUpdate
+        ? parsePageNumber(req.body.page_number)
+        : null;
+    const noteResult = hasNoteUpdate ? parseNoteContent(req.body.note_content) : null;
+
+    if (pageNumberResult?.error) {
+        return res.status(400).json({ message: pageNumberResult.error });
+    }
+
+    if (noteResult?.error) {
+        return res.status(400).json({ message: noteResult.error });
+    }
+
+    const setParts = [];
+    const values = [];
+
+    if (pageNumberResult) {
+        setParts.push(`page_number = $${setParts.length + 1}`);
+        values.push(pageNumberResult.value);
+    }
+
+    if (noteResult) {
+        setParts.push(`note_content = $${setParts.length + 1}`);
+        values.push(noteResult.value);
+    }
+
+    const bookmarkIdParam = values.length + 1;
+    const originalPageNumberParam = values.length + 2;
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const row = await db.oneOrNone(
+            `UPDATE bookmark_page_numbers
+             SET ${setParts.join(', ')}
+             WHERE bookmark_id = $${bookmarkIdParam}
+               AND page_number = $${originalPageNumberParam}
+             RETURNING ${PAGE_NUMBER_SELECT_COLUMNS}`,
+            [...values, bookmarkResult.value, originalPageNumberResult.value],
+        );
+
+        if (!row) {
+            return res.status(404).json({ message: 'Page number not found' });
+        }
+
+        return res.json(mapPageNumberRow(row));
+    } catch (error) {
+        console.error('Update bookmark page number error:', error);
+        return res.status(500).json({ message: 'Unable to update page number' });
+    }
+});
+
+app.delete('/bookmarks/:bookmarkId/page-numbers', authenticateToken, async (req, res) => {
+    const bookmarkResult = parseBookmarkIdParam(req.params.bookmarkId);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    const pageNumberResult = parsePageNumber(req.body?.page_number);
+
+    if (pageNumberResult.error) {
+        return res.status(400).json({ message: pageNumberResult.error });
+    }
+
+    try {
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const deleted = await db.result(
+            `DELETE FROM bookmark_page_numbers
+             WHERE bookmark_id = $1
+               AND page_number = $2`,
+            [bookmarkResult.value, pageNumberResult.value],
+        );
+
+        if (deleted.rowCount === 0) {
+            return res.status(404).json({ message: 'Page number not found' });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Delete bookmark page number error:', error);
+        return res.status(500).json({ message: 'Unable to delete page number' });
     }
 });
 
