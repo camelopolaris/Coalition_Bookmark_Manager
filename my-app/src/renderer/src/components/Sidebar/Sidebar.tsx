@@ -9,6 +9,14 @@ import FolderContextMenu from '@renderer/components/Sidebar/FolderContextMenu'
 import './sidebar.css'
 import './folder-context-menu.css'
 
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+    </svg>
+  )
+}
+
 interface FolderContextMenuState {
   folder: Folder
   x: number
@@ -120,6 +128,10 @@ function FolderTreeItem({
           {isExpanded ? '▾' : '▸'}
         </button>
 
+        <span className="sidebar__folder-icon">
+          <FolderIcon />
+        </span>
+
         <button type="button" className="sidebar__tree-label sidebar__tree-label--folder" onClick={handleFolderActivate}>
           {node.name}
         </button>
@@ -225,6 +237,10 @@ function UncategorizedSection({ bookmarks, folders, moveFolder }: UncategorizedS
         >
           {isExpanded ? '▾' : '▸'}
         </button>
+
+        <span className="sidebar__folder-icon">
+          <FolderIcon />
+        </span>
 
         <button
           type="button"
