@@ -1,0 +1,133 @@
+.settings-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2rem;
+}
+
+.settings-page__header {
+  margin-bottom: 1.5rem;
+}
+
+.settings-page__back {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  color: #3d3528;
+  font-weight: 600;
+}
+
+.settings-page__back:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.settings-page__title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c2416;
+}
+
+.settings-page__subtitle {
+  margin-top: 0.35rem;
+  color: #5c5347;
+}
+
+.settings-panel {
+  background: #d9cdb8;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.settings-panel__status {
+  color: #5c5347;
+}
+
+.settings-panel__status--error {
+  color: #8b1e1e;
+}
+
+.settings-form__error {
+  background: #fde8e8;
+  border: 1px solid #f5a5a5;
+  color: #8b1e1e;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.settings-form__success {
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  color: #1b5e20;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.settings-form__section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(44, 36, 22, 0.12);
+}
+
+.settings-form__section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2c2416;
+}
+
+.settings-form__section-hint {
+  margin-top: 0.35rem;
+  margin-bottom: 1rem;
+  color: #5c5347;
+  line-height: 1.45;
+}
+
+.settings-form__field {
+  margin-bottom: 1rem;
+}
+
+.settings-form__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #3d3528;
+}
+
+.settings-form__input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #c4b59c;
+  border-radius: 8px;
+  background: #fff;
+  color: #2c2416;
+}
+
+.settings-form__input:focus {
+  outline: 2px solid #9b8c73;
+  outline-offset: 1px;
+}
+
+.settings-form__actions {
+  margin-top: 1.25rem;
+}
+
+.settings-form__submit {
+  padding: 0.75rem 1.1rem;
+  border-radius: 8px;
+  background: #9b8c73;
+  color: #fbf8f1;
+  font-weight: 600;
+}
+
+.settings-form__submit:hover:not(:disabled) {
+  background: #8a7c65;
+}
+
+.settings-form__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

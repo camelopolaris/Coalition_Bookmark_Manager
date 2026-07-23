@@ -102,7 +102,13 @@ function Navbar() {
         <button type="button" className="navbar__icon-button" aria-label="Profile" onClick={handleLogout} title="Logout">
           <ProfileIcon />
         </button>
-        <button type="button" className="navbar__icon-button" aria-label="Settings">
+        <button
+          type="button"
+          className="navbar__icon-button"
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => router.navigate({ to: '/settings' })}
+        >
           <SettingsIcon />
         </button>
       </div>

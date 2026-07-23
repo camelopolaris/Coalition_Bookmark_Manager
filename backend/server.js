@@ -42,6 +42,8 @@ const {
     mapPageNumberRow,
 } = require('./bookmarkAnnotationFields');
 
+const { USER_SELECT_COLUMNS, parseAccountUpdateBody } = require('./userFields');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
 function authenticateToken(req, res, next) {
@@ -221,6 +223,132 @@ app.post('/signup', async (req, res) => {
         return res.status(500).json({ message: 'Unable to create account' })
     }
 })
+
+app.get('/users/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await db.oneOrNone(
+            `SELECT ${USER_SELECT_COLUMNS}
+             FROM users
+             WHERE user_id = $1`,
+            [req.user.userId],
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        return res.json(user);
+    } catch (error) {
+        console.error('Get current user error:', error);
+        return res.status(500).json({ message: 'Unable to fetch account' });
+    }
+});
+
+app.patch('/users/me', authenticateToken, async (req, res) => {
+    const { parsed, errors } = parseAccountUpdateBody(req.body);
+
+    if (errors.length > 0) {
+        return res.status(400).json({ message: errors[0] });
+    }
+
+    const updateFields = Object.keys(parsed).filter((field) => field !== 'current_password');
+
+    if (updateFields.length === 0) {
+        return res.status(400).json({ message: 'At least one field must be provided' });
+    }
+
+    try {
+        const currentUser = await db.oneOrNone(
+            `SELECT user_id, username, password
+             FROM users
+             WHERE user_id = $1`,
+            [req.user.userId],
+        );
+
+        if (!currentUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (parsed.password !== undefined) {
+            const verifiedUser = await db.oneOrNone(
+                `SELECT user_id
+                 FROM users
+                 WHERE user_id = $1
+                   AND password = crypt($2, password)`,
+                [req.user.userId, parsed.current_password],
+            );
+
+            if (!verifiedUser) {
+                return res.status(401).json({ message: 'Current password is incorrect' });
+            }
+        }
+
+        if (parsed.username !== undefined && parsed.username !== currentUser.username) {
+            const existingUser = await db.oneOrNone(
+                'SELECT user_id FROM users WHERE username = $1 AND user_id <> $2',
+                [parsed.username, req.user.userId],
+            );
+
+            if (existingUser) {
+                return res.status(409).json({ message: 'Username already exists' });
+            }
+        }
+
+        const setParts = [];
+        const values = [];
+
+        if (parsed.username !== undefined && parsed.username !== currentUser.username) {
+            setParts.push(`username = $${setParts.length + 1}`);
+            values.push(parsed.username);
+        }
+
+        if (parsed.password !== undefined) {
+            setParts.push(`password = crypt($${setParts.length + 1}, gen_salt('sha512crypt'))`);
+            values.push(parsed.password);
+        }
+
+        if (setParts.length === 0) {
+            return res.json({
+                success: true,
+                token: jwt.sign(
+                    { userId: currentUser.user_id, username: currentUser.username },
+                    JWT_SECRET,
+                    { expiresIn: '1h' },
+                ),
+                user: {
+                    user_id: currentUser.user_id,
+                    username: currentUser.username,
+                },
+            });
+        }
+
+        const userIdParam = values.length + 1;
+
+        const updatedUser = await db.one(
+            `UPDATE users
+             SET ${setParts.join(', ')}
+             WHERE user_id = $${userIdParam}
+             RETURNING ${USER_SELECT_COLUMNS}`,
+            [...values, req.user.userId],
+        );
+
+        const token = jwt.sign(
+            { userId: updatedUser.user_id, username: updatedUser.username },
+            JWT_SECRET,
+            { expiresIn: '1h' },
+        );
+
+        return res.json({
+            success: true,
+            token,
+            user: updatedUser,
+        });
+    } catch (error) {
+        console.error('Update account error:', error);
+        return res.status(500).json({ message: 'Unable to update account' });
+    }
+});
+
 //MARK: Folder CRUD
 
 app.get('/folders', authenticateToken, async (req, res) => {

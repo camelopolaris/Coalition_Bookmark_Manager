@@ -1,4 +1,5 @@
-import { createContext, PropsWithChildren, useContext, useMemo, useState } from 'react'
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { UpdateAccountInput, User } from '@renderer/types/user'
 
 const API_BASE_URL = (window.api as { getApiBaseUrl?: () => string } | undefined)?.getApiBaseUrl?.() || 'http://localhost:3000'
 const STORAGE_KEY = 'coalition.auth.token'
@@ -14,9 +15,14 @@ function readStoredToken() {
 export interface AuthState {
   isAuth: boolean
   token: string | null
+  user: User | null
+  isUserLoading: boolean
   handleLoginAttempt: (username: string, password: string) => Promise<boolean>
   handleSignup: (username: string, password: string) => Promise<boolean>
   handleLogout: () => Promise<void>
+  updateAccount: (
+    input: UpdateAccountInput,
+  ) => Promise<{ success: boolean; message?: string; user?: User }>
   fetchWithAuth: (
     endpoint: RequestInfo,
     options?: RequestInit,
@@ -38,6 +44,96 @@ export function useAuth() {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [token, setToken] = useState<string | null>(() => readStoredToken())
   const [isAuth, setIsAuth] = useState(Boolean(readStoredToken()))
+  const [user, setUser] = useState<User | null>(null)
+  const [isUserLoading, setIsUserLoading] = useState(Boolean(readStoredToken()))
+
+  const persistSession = useCallback((nextToken: string | null, nextUser: User | null) => {
+    if (nextToken) {
+      window.localStorage.setItem(STORAGE_KEY, nextToken)
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY)
+    }
+
+    setToken(nextToken)
+    setIsAuth(Boolean(nextToken))
+    setUser(nextUser)
+  }, [])
+
+  const clearSession = useCallback(() => {
+    window.localStorage.removeItem(STORAGE_KEY)
+    setToken(null)
+    setIsAuth(false)
+    setUser(null)
+    setIsUserLoading(false)
+  }, [])
+
+  const fetchWithAuth = useCallback(
+    async (endpoint: RequestInfo, options: RequestInit = {}) => {
+      if (!token) {
+        return undefined
+      }
+
+      const requestUrl =
+        typeof endpoint === 'string'
+          ? `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
+          : endpoint
+
+      const headers = new Headers(options.headers ?? {})
+      headers.set('Authorization', `Bearer ${token}`)
+
+      try {
+        const response = await fetch(requestUrl, { ...options, headers })
+        if (response.status === 401) {
+          clearSession()
+          return undefined
+        }
+        return response
+      } catch (error) {
+        console.error('Request failed.', error)
+        return undefined
+      }
+    },
+    [clearSession, token],
+  )
+
+  const loadCurrentUser = useCallback(async () => {
+    if (!token) {
+      setUser(null)
+      setIsUserLoading(false)
+      return null
+    }
+
+    setIsUserLoading(true)
+
+    try {
+      const response = await fetchWithAuth('/users/me')
+
+      if (!response?.ok) {
+        setUser(null)
+        return null
+      }
+
+      const nextUser = (await response.json()) as User
+      setUser(nextUser)
+      return nextUser
+    } catch (error) {
+      console.error('Failed to load current user.', error)
+      setUser(null)
+      return null
+    } finally {
+      setIsUserLoading(false)
+    }
+  }, [fetchWithAuth, token])
+
+  useEffect(() => {
+    if (token) {
+      loadCurrentUser()
+      return
+    }
+
+    setUser(null)
+    setIsUserLoading(false)
+  }, [loadCurrentUser, token])
 
   async function handleLoginAttempt(username: string, password: string) {
     try {
@@ -54,19 +150,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       const nextToken = responseJSON?.token ?? null
-      if (nextToken) {
-        window.localStorage.setItem(STORAGE_KEY, nextToken)
-      } else {
-        window.localStorage.removeItem(STORAGE_KEY)
+      const nextUser = (responseJSON?.user as User | undefined) ?? null
+
+      if (!nextToken) {
+        clearSession()
+        return false
       }
-      setToken(nextToken)
-      setIsAuth(Boolean(nextToken || responseJSON?.success))
-      return Boolean(nextToken || responseJSON?.success)
+
+      persistSession(nextToken, nextUser)
+      setIsUserLoading(false)
+      return true
     } catch (error) {
       console.error('Failed to login.', error)
-      window.localStorage.removeItem(STORAGE_KEY)
-      setToken(null)
-      setIsAuth(false)
+      clearSession()
       return false
     }
   }
@@ -86,65 +182,76 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       const nextToken = responseJSON?.token ?? null
-      if (nextToken) {
-        window.localStorage.setItem(STORAGE_KEY, nextToken)
-      } else {
-        window.localStorage.removeItem(STORAGE_KEY)
+      const nextUser = (responseJSON?.user as User | undefined) ?? null
+
+      if (!nextToken) {
+        clearSession()
+        return false
       }
-      setToken(nextToken)
-      setIsAuth(Boolean(nextToken || responseJSON?.success))
-      return Boolean(nextToken || responseJSON?.success)
+
+      persistSession(nextToken, nextUser)
+      setIsUserLoading(false)
+      return true
     } catch (error) {
       console.error('Failed to signup.', error)
-      window.localStorage.removeItem(STORAGE_KEY)
-      setToken(null)
-      setIsAuth(false)
+      clearSession()
       return false
     }
   }
 
   async function handleLogout() {
-    window.localStorage.removeItem(STORAGE_KEY)
-    setToken(null)
-    setIsAuth(false)
+    clearSession()
   }
 
-  async function fetchWithAuth(endpoint: RequestInfo, options: RequestInit = {}) {
-    if (!token) {
-      return undefined
-    }
+  const updateAccount = useCallback(
+    async (input: UpdateAccountInput) => {
+      try {
+        const response = await fetchWithAuth('/users/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        })
 
-    const requestUrl =
-      typeof endpoint === 'string'
-        ? `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
-        : endpoint
+        const responseJSON = await response?.json().catch(() => ({}))
 
-    const headers = new Headers(options.headers ?? {})
-    headers.set('Authorization', `Bearer ${token}`)
+        if (!response?.ok) {
+          return {
+            success: false,
+            message: responseJSON?.message || 'Unable to update account',
+          }
+        }
 
-    try {
-      const response = await fetch(requestUrl, { ...options, headers })
-      if (response.status === 401) {
-        await handleLogout()
-        return undefined
+        const nextToken = (responseJSON?.token as string | undefined) ?? token
+        const nextUser = (responseJSON?.user as User | undefined) ?? user
+
+        if (nextToken && nextUser) {
+          persistSession(nextToken, nextUser)
+        } else if (nextUser) {
+          setUser(nextUser)
+        }
+
+        return { success: true, user: nextUser ?? undefined }
+      } catch (error) {
+        console.error('Failed to update account.', error)
+        return { success: false, message: 'Unable to update account' }
       }
-      return response
-    } catch (error) {
-      console.error('Request failed.', error)
-      return undefined
-    }
-  }
+    },
+    [fetchWithAuth, persistSession, token, user],
+  )
 
   const value = useMemo<AuthState>(
     () => ({
       isAuth,
       token,
+      user,
+      isUserLoading,
       handleLoginAttempt,
       handleSignup,
       handleLogout,
+      updateAccount,
       fetchWithAuth,
     }),
-    [isAuth, token],
+    [isAuth, token, user, isUserLoading, updateAccount, fetchWithAuth],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

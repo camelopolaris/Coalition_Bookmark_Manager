@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TestRouteRouteImport } from './routes/testRoute'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const TestRouteRoute = TestRouteRouteImport.update({
   id: '/testRoute',
   path: '/testRoute',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/authenticated': typeof AuthenticatedRoute
   '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/testRoute': typeof TestRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/authenticated': typeof AuthenticatedRoute
   '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/testRoute': typeof TestRouteRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,28 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/authenticated': typeof AuthenticatedRoute
   '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/testRoute': typeof TestRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/authenticated' | '/login' | '/testRoute'
+  fullPaths: '/' | '/authenticated' | '/login' | '/settings' | '/testRoute'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/authenticated' | '/login' | '/testRoute'
-  id: '__root__' | '/' | '/authenticated' | '/login' | '/testRoute'
+  to: '/' | '/authenticated' | '/login' | '/settings' | '/testRoute'
+  id:
+    | '__root__'
+    | '/'
+    | '/authenticated'
+    | '/login'
+    | '/settings'
+    | '/testRoute'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRoute
   LoginRoute: typeof LoginRoute
+  SettingsRoute: typeof SettingsRoute
   TestRouteRoute: typeof TestRouteRoute
 }
 
@@ -76,6 +92,13 @@ declare module '@tanstack/react-router' {
       path: '/testRoute'
       fullPath: '/testRoute'
       preLoaderRoute: typeof TestRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -106,6 +129,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRoute,
   LoginRoute: LoginRoute,
+  SettingsRoute: SettingsRoute,
   TestRouteRoute: TestRouteRoute,
 }
 export const routeTree = rootRouteImport
