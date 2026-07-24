@@ -43,6 +43,13 @@ const {
 } = require('./bookmarkAnnotationFields');
 
 const { USER_SELECT_COLUMNS, parseAccountUpdateBody } = require('./userFields');
+const {
+    SESSION_SELECT_COLUMNS,
+    parseSessionName,
+    parseSessionBody,
+    parseBookmarkId: parseSessionBookmarkId,
+    mapSessionRow,
+} = require('./sessionFields');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -94,6 +101,47 @@ function parseBookmarkIdParam(value) {
     }
 
     return { value: bookmarkId };
+}
+
+function parseSessionIdParam(value) {
+    const sessionId = Number(value);
+
+    if (!Number.isInteger(sessionId)) {
+        return { error: 'Invalid session id' };
+    }
+
+    return { value: sessionId };
+}
+
+async function getUserSession(userId, sessionId) {
+    return db.oneOrNone(
+        `SELECT session_id
+         FROM sessions
+         WHERE session_id = $1
+           AND user_id = $2`,
+        [sessionId, userId],
+    );
+}
+
+async function loadUserSessions(userId) {
+    const rows = await db.any(
+        `SELECT s.session_id,
+                s.name,
+                s.user_id,
+                COALESCE(
+                    array_agg(sb.bookmark_id ORDER BY sb.position, sb.bookmark_id)
+                    FILTER (WHERE sb.bookmark_id IS NOT NULL),
+                    '{}'
+                ) AS bookmark_ids
+         FROM sessions s
+         LEFT JOIN session_bookmarks sb ON sb.session_id = s.session_id
+         WHERE s.user_id = $1
+         GROUP BY s.session_id, s.name, s.user_id
+         ORDER BY s.name ASC`,
+        [userId],
+    );
+
+    return rows.map(mapSessionRow);
 }
 
 function collectDescendantFolderIds(folders, rootFolderId) {
@@ -526,6 +574,217 @@ app.delete('/folders/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Delete folder error:', error);
         return res.status(500).json({ message: 'Unable to delete folder' });
+    }
+});
+
+//MARK: Session CRUD
+
+app.get('/sessions', authenticateToken, async (req, res) => {
+    try {
+        const sessions = await loadUserSessions(req.user.userId);
+        return res.json(sessions);
+    } catch (error) {
+        console.error('Get sessions error:', error);
+        return res.status(500).json({ message: 'Unable to fetch sessions' });
+    }
+});
+
+app.post('/sessions', authenticateToken, async (req, res) => {
+    const nameResult = parseSessionName(req.body?.name);
+
+    if (nameResult.error) {
+        return res.status(400).json({ message: nameResult.error });
+    }
+
+    try {
+        const session = await db.one(
+            `INSERT INTO sessions (name, user_id)
+             VALUES ($1, $2)
+             RETURNING ${SESSION_SELECT_COLUMNS}`,
+            [nameResult.value, req.user.userId],
+        );
+
+        return res.status(201).json(mapSessionRow({ ...session, bookmark_ids: [] }));
+    } catch (error) {
+        console.error('Create session error:', error);
+        return res.status(500).json({ message: 'Unable to create session' });
+    }
+});
+
+app.patch('/sessions/:id', authenticateToken, async (req, res) => {
+    const sessionResult = parseSessionIdParam(req.params.id);
+
+    if (sessionResult.error) {
+        return res.status(400).json({ message: sessionResult.error });
+    }
+
+    const { parsed, errors } = parseSessionBody(req.body, { allowPartial: true });
+
+    if (errors.length > 0) {
+        return res.status(400).json({ message: errors[0] });
+    }
+
+    const updateFields = Object.keys(parsed);
+
+    if (updateFields.length === 0) {
+        return res.status(400).json({ message: 'At least one field must be provided' });
+    }
+
+    const values = updateFields.map((field) => parsed[field]);
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const sessionIdParam = updateFields.length + 1;
+    const userIdParam = updateFields.length + 2;
+
+    try {
+        const updatedSession = await db.oneOrNone(
+            `UPDATE sessions
+             SET ${setClause}
+             WHERE session_id = $${sessionIdParam}
+               AND user_id = $${userIdParam}
+             RETURNING ${SESSION_SELECT_COLUMNS}`,
+            [...values, sessionResult.value, req.user.userId],
+        );
+
+        if (!updatedSession) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        const sessions = await loadUserSessions(req.user.userId);
+        const session = sessions.find((item) => item.session_id === updatedSession.session_id);
+
+        return res.json(session ?? mapSessionRow({ ...updatedSession, bookmark_ids: [] }));
+    } catch (error) {
+        console.error('Update session error:', error);
+        return res.status(500).json({ message: 'Unable to update session' });
+    }
+});
+
+app.delete('/sessions/:id', authenticateToken, async (req, res) => {
+    const sessionResult = parseSessionIdParam(req.params.id);
+
+    if (sessionResult.error) {
+        return res.status(400).json({ message: sessionResult.error });
+    }
+
+    try {
+        const deleted = await db.result(
+            `DELETE FROM sessions
+             WHERE session_id = $1
+               AND user_id = $2`,
+            [sessionResult.value, req.user.userId],
+        );
+
+        if (deleted.rowCount === 0) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Delete session error:', error);
+        return res.status(500).json({ message: 'Unable to delete session' });
+    }
+});
+
+app.post('/sessions/:id/bookmarks', authenticateToken, async (req, res) => {
+    const sessionResult = parseSessionIdParam(req.params.id);
+
+    if (sessionResult.error) {
+        return res.status(400).json({ message: sessionResult.error });
+    }
+
+    const bookmarkResult = parseSessionBookmarkId(req.body?.bookmark_id);
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    try {
+        const session = await getUserSession(req.user.userId, sessionResult.value);
+
+        if (!session) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        const bookmark = await getUserBookmark(req.user.userId, bookmarkResult.value);
+
+        if (!bookmark) {
+            return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        const existing = await db.oneOrNone(
+            `SELECT session_id
+             FROM session_bookmarks
+             WHERE session_id = $1
+               AND bookmark_id = $2`,
+            [sessionResult.value, bookmarkResult.value],
+        );
+
+        if (existing) {
+            const sessions = await loadUserSessions(req.user.userId);
+            const currentSession = sessions.find((item) => item.session_id === sessionResult.value);
+            return res.json(currentSession ?? mapSessionRow({ session_id: sessionResult.value, bookmark_ids: [] }));
+        }
+
+        const nextPosition = await db.one(
+            `SELECT COALESCE(MAX(position), -1) + 1 AS next_position
+             FROM session_bookmarks
+             WHERE session_id = $1`,
+            [sessionResult.value],
+        );
+
+        await db.none(
+            `INSERT INTO session_bookmarks (session_id, bookmark_id, position)
+             VALUES ($1, $2, $3)`,
+            [sessionResult.value, bookmarkResult.value, nextPosition.next_position],
+        );
+
+        const sessions = await loadUserSessions(req.user.userId);
+        const updatedSession = sessions.find((item) => item.session_id === sessionResult.value);
+
+        return res.status(201).json(updatedSession);
+    } catch (error) {
+        console.error('Add bookmark to session error:', error);
+        return res.status(500).json({ message: 'Unable to add bookmark to session' });
+    }
+});
+
+app.delete('/sessions/:id/bookmarks/:bookmarkId', authenticateToken, async (req, res) => {
+    const sessionResult = parseSessionIdParam(req.params.id);
+    const bookmarkResult = parseSessionBookmarkId(req.params.bookmarkId);
+
+    if (sessionResult.error) {
+        return res.status(400).json({ message: sessionResult.error });
+    }
+
+    if (bookmarkResult.error) {
+        return res.status(400).json({ message: bookmarkResult.error });
+    }
+
+    try {
+        const session = await getUserSession(req.user.userId, sessionResult.value);
+
+        if (!session) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        const deleted = await db.result(
+            `DELETE FROM session_bookmarks
+             WHERE session_id = $1
+               AND bookmark_id = $2`,
+            [sessionResult.value, bookmarkResult.value],
+        );
+
+        if (deleted.rowCount === 0) {
+            return res.status(404).json({ message: 'Bookmark not in session' });
+        }
+
+        const sessions = await loadUserSessions(req.user.userId);
+        const updatedSession = sessions.find((item) => item.session_id === sessionResult.value);
+
+        return res.json(updatedSession);
+    } catch (error) {
+        console.error('Remove bookmark from session error:', error);
+        return res.status(500).json({ message: 'Unable to remove bookmark from session' });
     }
 });
 

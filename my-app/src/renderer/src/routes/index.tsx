@@ -6,6 +6,7 @@ import BookmarkDetail from '@renderer/components/BookmarkDetail/BookmarkDetail'
 import '@renderer/components/BookmarkDetail/bookmark-detail.css'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import { useFolders } from '@renderer/contexts/FoldersContext'
+import { useSessions } from '@renderer/contexts/SessionsContext'
 import { useSearch } from '@renderer/contexts/SearchContext'
 import './home.css'
 
@@ -26,9 +27,20 @@ export const Route = createFileRoute('/')({
 function HomePage() {
   const { bookmarks, isLoading, selectedBookmarkId, clearSelectedBookmark } = useBookmarks()
   const { selectedFolderId } = useFolders()
+  const { selectedSessionId, sessions } = useSessions()
   const { search } = useSearch()
 
   const folderFilteredBookmarks = useMemo(() => {
+    if (selectedSessionId !== null) {
+      const session = sessions.find((item) => item.session_id === selectedSessionId)
+      if (!session) {
+        return []
+      }
+
+      const bookmarkIdSet = new Set(session.bookmark_ids)
+      return bookmarks.filter((bookmark) => bookmarkIdSet.has(bookmark.bookmark_id))
+    }
+
     if (selectedFolderId === 'all') {
       return bookmarks
     }
@@ -38,7 +50,7 @@ function HomePage() {
     }
 
     return bookmarks.filter((bookmark) => bookmark.folder_id === selectedFolderId)
-  }, [bookmarks, selectedFolderId])
+  }, [bookmarks, selectedFolderId, selectedSessionId, sessions])
 
   const filteredBookmarks = useMemo(() => {
     const query = search.trim().toLowerCase()

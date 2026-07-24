@@ -2,10 +2,12 @@ import { MouseEvent, useMemo, useState } from 'react'
 import { Bookmark } from '@renderer/types/bookmark'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import { useFolders } from '@renderer/contexts/FoldersContext'
+import { useSessions } from '@renderer/contexts/SessionsContext'
 import { setBookmarkDragData, setFolderDragData } from '@renderer/constants/drag'
 import { useFolderDropTarget } from '@renderer/hooks/useFolderDropTarget'
 import { Folder, FolderTreeNode, buildFolderTree } from '@renderer/types/folder'
 import FolderContextMenu from '@renderer/components/Sidebar/FolderContextMenu'
+import SessionsSection from '@renderer/components/Sidebar/SessionsSection'
 import './sidebar.css'
 import './folder-context-menu.css'
 
@@ -71,6 +73,7 @@ function FolderTreeItem({
   moveFolder,
 }: FolderTreeItemProps) {
   const { selectedFolderId, selectFolder, openCreateFolderModal } = useFolders()
+  const { clearSelectedSession } = useSessions()
   const { openAddModal, clearSelectedBookmark } = useBookmarks()
 
   const folderBookmarks = useMemo(
@@ -103,6 +106,7 @@ function FolderTreeItem({
   const handleFolderActivate = () => {
     setIsExpanded((current) => !current)
     selectFolder(node.folder_id)
+    clearSelectedSession()
     clearSelectedBookmark()
   }
 
@@ -192,6 +196,7 @@ interface UncategorizedSectionProps {
 
 function UncategorizedSection({ bookmarks, folders, moveFolder }: UncategorizedSectionProps) {
   const { selectedFolderId, selectFolder } = useFolders()
+  const { clearSelectedSession } = useSessions()
   const { clearSelectedBookmark } = useBookmarks()
   const uncategorizedBookmarks = useMemo(
     () =>
@@ -220,6 +225,7 @@ function UncategorizedSection({ bookmarks, folders, moveFolder }: UncategorizedS
   const handleUncategorizedActivate = () => {
     setIsExpanded((current) => !current)
     selectFolder(null)
+    clearSelectedSession()
     clearSelectedBookmark()
   }
 
@@ -271,6 +277,7 @@ function Sidebar() {
     openDeleteFolderModal,
     moveFolder,
   } = useFolders()
+  const { clearSelectedSession } = useSessions()
   const { bookmarks, clearSelectedBookmark } = useBookmarks()
   const [contextMenu, setContextMenu] = useState<FolderContextMenuState | null>(null)
 
@@ -303,6 +310,7 @@ function Sidebar() {
         className={`sidebar__nav-item ${selectedFolderId === 'all' ? 'sidebar__nav-item--active' : ''}`}
         onClick={() => {
           selectFolder('all')
+          clearSelectedSession()
           clearSelectedBookmark()
         }}
       >
@@ -327,6 +335,8 @@ function Sidebar() {
           moveFolder={moveFolder}
         />
       ))}
+
+      <SessionsSection />
 
       {contextMenu ? (
         <FolderContextMenu

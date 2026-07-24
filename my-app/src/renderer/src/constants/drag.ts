@@ -4,7 +4,7 @@ export const FOLDER_DRAG_MIME = 'application/x-coalition-folder-id'
 export function setBookmarkDragData(dataTransfer: DataTransfer, bookmarkId: number) {
   dataTransfer.setData(BOOKMARK_DRAG_MIME, String(bookmarkId))
   dataTransfer.setData('text/plain', `bookmark:${bookmarkId}`)
-  dataTransfer.effectAllowed = 'move'
+  dataTransfer.effectAllowed = 'copyMove'
 }
 
 export function setFolderDragData(dataTransfer: DataTransfer, folderId: number) {
@@ -53,7 +53,16 @@ export function isBookmarkDragEvent(event: DragEvent) {
   }
 
   const typeList = Array.from(types)
-  return typeList.includes(BOOKMARK_DRAG_MIME) || typeList.includes('text/plain')
+
+  if (typeList.includes(BOOKMARK_DRAG_MIME)) {
+    return true
+  }
+
+  if (typeList.includes(FOLDER_DRAG_MIME)) {
+    return false
+  }
+
+  return typeList.includes('text/plain')
 }
 
 export function isFolderDragEvent(event: DragEvent) {

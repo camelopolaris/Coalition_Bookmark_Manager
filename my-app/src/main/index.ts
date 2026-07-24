@@ -58,7 +58,17 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  
+  ipcMain.handle('open-external-urls', async (_event, urls: unknown) => {
+    if (!Array.isArray(urls)) {
+      return
+    }
+
+    for (const url of urls) {
+      if (typeof url === 'string' && url.trim()) {
+        await shell.openExternal(url)
+      }
+    }
+  })
 
   createWindow()
 

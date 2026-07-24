@@ -1,0 +1,80 @@
+.delete-session-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 36, 22, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+}
+
+.delete-session-modal {
+  width: 100%;
+  max-width: 420px;
+  background: #fbf8f1;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  padding: 1.5rem;
+}
+
+.delete-session-modal__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #2c2416;
+}
+
+.delete-session-modal__message {
+  margin-top: 0.85rem;
+  color: #3d3528;
+  line-height: 1.5;
+}
+
+.delete-session-modal__session-name {
+  font-weight: 700;
+}
+
+.delete-session-modal__error {
+  background: #fde8e8;
+  border: 1px solid #f5a5a5;
+  color: #8b1e1e;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.delete-session-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.delete-session-modal__button {
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.delete-session-modal__button--secondary {
+  background: #ebe2d3;
+  color: #3d3528;
+}
+
+.delete-session-modal__button--secondary:hover {
+  background: #dfd3c2;
+}
+
+.delete-session-modal__button--danger {
+  background: #b54a4a;
+  color: #fbf8f1;
+}
+
+.delete-session-modal__button--danger:hover:not(:disabled) {
+  background: #9f3f3f;
+}
+
+.delete-session-modal__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
