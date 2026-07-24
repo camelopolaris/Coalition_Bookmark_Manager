@@ -1,4 +1,5 @@
 import { Bookmark } from '@renderer/types/bookmark'
+import { normalizeBookmarkUrl, openBookmarkUrl } from '@renderer/utils/openBookmarks'
 import { useBookmarks } from '@renderer/contexts/BookmarksContext'
 import { useBookmarkAnnotations } from '@renderer/hooks/useBookmarkAnnotations'
 import BookmarkPageNumbersSection from '@renderer/components/BookmarkDetail/BookmarkPageNumbersSection'
@@ -52,6 +53,7 @@ function BookmarkDetail({ bookmark }: BookmarkDetailProps) {
     deletePageNumber,
   } = useBookmarkAnnotations(bookmark.bookmark_id)
   const hostname = getHostname(bookmark.url)
+  const bookmarkUrl = normalizeBookmarkUrl(bookmark.url)
 
   return (
     <div className="bookmark-detail">
@@ -104,7 +106,7 @@ function BookmarkDetail({ bookmark }: BookmarkDetailProps) {
           <section className="bookmark-detail__section">
             <h2 className="bookmark-detail__section-title">URL</h2>
             <a
-              href={bookmark.url}
+              href={bookmarkUrl}
               className="bookmark-detail__url"
               target="_blank"
               rel="noreferrer"
@@ -114,14 +116,13 @@ function BookmarkDetail({ bookmark }: BookmarkDetailProps) {
             <p className="bookmark-detail__meta">{hostname}</p>
           </section>
 
-          <a
-            href={bookmark.url}
+          <button
+            type="button"
             className="bookmark-detail__open-link"
-            target="_blank"
-            rel="noreferrer"
+            onClick={() => openBookmarkUrl(bookmark.url)}
           >
             Open bookmark
-          </a>
+          </button>
 
           {annotationsError ? (
             <p className="bookmark-detail__annotation-error">{annotationsError}</p>

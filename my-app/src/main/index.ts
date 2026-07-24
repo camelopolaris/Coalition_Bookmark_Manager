@@ -3,6 +3,20 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+function normalizeExternalUrl(url: string): string {
+  const trimmed = url.trim()
+
+  if (!trimmed) {
+    return trimmed
+  }
+
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)) {
+    return trimmed
+  }
+
+  return `https://${trimmed}`
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -65,7 +79,7 @@ app.whenReady().then(() => {
 
     for (const url of urls) {
       if (typeof url === 'string' && url.trim()) {
-        await shell.openExternal(url)
+        await shell.openExternal(normalizeExternalUrl(url))
       }
     }
   })

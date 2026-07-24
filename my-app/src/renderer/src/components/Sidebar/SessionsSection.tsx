@@ -101,7 +101,7 @@ function SessionTreeItem({ session, bookmarks, onContextMenu }: SessionTreeItemP
     selectSession(session.session_id)
     selectFolder('all')
     clearSelectedBookmark()
-    await openAllInSession(session.session_id, bookmarks)
+    await openAllInSession(sessionBookmarks)
   }
 
   return (

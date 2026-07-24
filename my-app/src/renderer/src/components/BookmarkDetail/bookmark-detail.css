@@ -125,11 +125,13 @@
   display: inline-block;
   margin-top: 1rem;
   padding: 0.65rem 1rem;
+  border: none;
   border-radius: 8px;
   background: #9b8c73;
   color: #fbf8f1;
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .bookmark-detail__open-link:hover {

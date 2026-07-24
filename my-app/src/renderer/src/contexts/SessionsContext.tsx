@@ -42,7 +42,7 @@ interface SessionsContextValue {
     sessionId: number,
     bookmarkId: number,
   ) => Promise<{ success: boolean; message?: string }>
-  openAllInSession: (sessionId: number, bookmarks: Bookmark[]) => Promise<void>
+  openAllInSession: (sessionBookmarks: Bookmark[]) => Promise<void>
 }
 
 const SessionsContext = createContext<SessionsContextValue | undefined>(undefined)
@@ -239,22 +239,10 @@ export function SessionsProvider({ children }: PropsWithChildren) {
     [auth],
   )
 
-  const openAllInSession = useCallback(
-    async (sessionId: number, bookmarks: Bookmark[]) => {
-      const session = sessions.find((item) => item.session_id === sessionId)
-      if (!session) {
-        return
-      }
-
-      const bookmarkMap = new Map(bookmarks.map((bookmark) => [bookmark.bookmark_id, bookmark.url]))
-      const urls = session.bookmark_ids
-        .map((bookmarkId) => bookmarkMap.get(bookmarkId))
-        .filter((url): url is string => Boolean(url))
-
-      await openBookmarksInBrowser(urls)
-    },
-    [sessions],
-  )
+  const openAllInSession = useCallback(async (sessionBookmarks: Bookmark[]) => {
+    const urls = sessionBookmarks.map((bookmark) => bookmark.url)
+    await openBookmarksInBrowser(urls)
+  }, [])
 
   const value = useMemo<SessionsContextValue>(
     () => ({
