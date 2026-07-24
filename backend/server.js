@@ -50,6 +50,11 @@ const {
     parseBookmarkId: parseSessionBookmarkId,
     mapSessionRow,
 } = require('./sessionFields');
+const {
+    upsertBookmarkEmbedding,
+    searchBookmarksSemantically,
+} = require('./bookmarkEmbeddings');
+const { ensureSemanticSearchSchema } = require('./semanticSearchSchema');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -809,6 +814,26 @@ app.get('/bookmarks', authenticateToken, async (req, res) => {
         return res.status(500).json({ message: 'Unable to fetch bookmarks' });
     }
 });
+
+app.get('/bookmarks/semantic-search', authenticateToken, async (req, res) => {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const limit = Number(req.query.limit);
+
+    if (!query) {
+        return res.status(400).json({ message: 'Search query is required' });
+    }
+
+    try {
+        const bookmarks = await searchBookmarksSemantically(db, req.user.userId, query, {
+            limit: Number.isFinite(limit) ? limit : undefined,
+        });
+
+        return res.json(bookmarks);
+    } catch (error) {
+        console.error('Semantic bookmark search error:', error);
+        return res.status(500).json({ message: 'Unable to perform semantic search' });
+    }
+});
 //MARK: GET specific bookmark
 app.get('/bookmarks/:id', authenticateToken, async (req, res) => {
     const id = Number(req.params.id);
@@ -870,6 +895,18 @@ app.post('/bookmarks', authenticateToken, async (req, res) => {
                 req.user.userId,
             ],
         );
+
+        try {
+            await upsertBookmarkEmbedding(
+                db,
+                bookmark.bookmark_id,
+                req.user.userId,
+                bookmark.name,
+                bookmark.url,
+            );
+        } catch (embeddingError) {
+            console.error('Create bookmark embedding error:', embeddingError);
+        }
 
         return res.status(201).json(bookmark);
     } catch (error) {
@@ -936,6 +973,20 @@ app.patch('/bookmarks/:id', authenticateToken, async (req, res) => {
 
         if (!bookmark) {
             return res.status(404).json({ message: 'Bookmark not found' });
+        }
+
+        if (parsed.name !== undefined || parsed.url !== undefined) {
+            try {
+                await upsertBookmarkEmbedding(
+                    db,
+                    bookmark.bookmark_id,
+                    req.user.userId,
+                    bookmark.name,
+                    bookmark.url,
+                );
+            } catch (embeddingError) {
+                console.error('Update bookmark embedding error:', embeddingError);
+            }
         }
 
         return res.json(bookmark);
@@ -1366,6 +1417,15 @@ app.delete('/bookmarks/:bookmarkId/page-numbers', authenticateToken, async (req,
 });
 
 //MARK: Start server
-app.listen(port, () => {
-    console.log(`Coalition backend API is listening on port ${port}`);
-});
+ensureSemanticSearchSchema(db)
+    .then((storageMode) => {
+        console.log(`Semantic search storage mode: ${storageMode}`);
+    })
+    .catch((error) => {
+        console.error('Unable to prepare semantic search schema:', error.message || error);
+    })
+    .finally(() => {
+        app.listen(port, () => {
+            console.log(`Coalition backend API is listening on port ${port}`);
+        });
+    });

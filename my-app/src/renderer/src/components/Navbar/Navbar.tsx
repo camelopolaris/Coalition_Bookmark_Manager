@@ -85,7 +85,7 @@ function Navbar() {
         <input
           type="search"
           className="navbar__search-input"
-          placeholder="Search for bookmarks here..."
+          placeholder="Search bookmarks by meaning or text..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />

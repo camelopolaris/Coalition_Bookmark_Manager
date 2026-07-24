@@ -28,7 +28,7 @@ function HomePage() {
   const { bookmarks, isLoading, selectedBookmarkId, clearSelectedBookmark } = useBookmarks()
   const { selectedFolderId } = useFolders()
   const { selectedSessionId, sessions } = useSessions()
-  const { search } = useSearch()
+  const { search, semanticBookmarkIds, isSearchLoading } = useSearch()
 
   const folderFilteredBookmarks = useMemo(() => {
     if (selectedSessionId !== null) {
@@ -53,17 +53,29 @@ function HomePage() {
   }, [bookmarks, selectedFolderId, selectedSessionId, sessions])
 
   const filteredBookmarks = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query = search.trim()
     if (!query) {
       return folderFilteredBookmarks
     }
 
+    if (semanticBookmarkIds !== null) {
+      const rankById = new Map(semanticBookmarkIds.map((id, index) => [id, index]))
+
+      return folderFilteredBookmarks
+        .filter((bookmark) => rankById.has(bookmark.bookmark_id))
+        .sort(
+          (left, right) =>
+            (rankById.get(left.bookmark_id) ?? 0) - (rankById.get(right.bookmark_id) ?? 0),
+        )
+    }
+
+    const normalizedQuery = query.toLowerCase()
     return folderFilteredBookmarks.filter(
       (bookmark) =>
-        bookmark.name.toLowerCase().includes(query) ||
-        bookmark.url.toLowerCase().includes(query),
+        bookmark.name.toLowerCase().includes(normalizedQuery) ||
+        bookmark.url.toLowerCase().includes(normalizedQuery),
     )
-  }, [folderFilteredBookmarks, search])
+  }, [folderFilteredBookmarks, search, semanticBookmarkIds])
 
   const selectedBookmark = useMemo(
     () => bookmarks.find((bookmark) => bookmark.bookmark_id === selectedBookmarkId) ?? null,
@@ -86,7 +98,10 @@ function HomePage() {
             </div>
           )
         ) : (
-          <BookmarkGrid bookmarks={filteredBookmarks} isLoading={isLoading} />
+          <BookmarkGrid
+            bookmarks={filteredBookmarks}
+            isLoading={isLoading || isSearchLoading}
+          />
         )}
       </main>
     </div>
